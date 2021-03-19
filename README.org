@@ -1,0 +1,11 @@
+#+TITLE: mattlude
+#+AUTHOR: Matt Teichman
+#+DESCRIPTION: Experimental additions to OCaml Prelude library
+#+OPTIONS: toc:nil, num:nil
+
+* Description
+
+This is set of general-purpose library functions intended to build on
+Keith Waclena's [[https://www2.lib.uchicago.edu/keith/software/prelude/Prelude.html][Prelude]] library.  This is freshly typed up so right
+now no comments or docstrings.  However, as the code matures I intend
+to add documentation, =odig= documentation, and unit tests.
