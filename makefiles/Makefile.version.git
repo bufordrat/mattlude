@@ -1,0 +1,24 @@
+# mattlude							 -*- makefile -*-
+# Makefile.version.git
+# Matt Teichman <https://elucidations.now.sh>
+
+VCS = git
+
+# TRY : git describe --always --dirty
+
+# make functions: eg $(call VERSION)
+VERSION = $(shell git log --format=%H -1 HEAD)
+
+.PHONY: dirtycheck
+dirtycheck::
+ifndef FORCE
+	$(warning NYI: git dirty check)
+endif
+	@true
+
+.PHONY: versioncheck
+versioncheck: dirtycheck
+ifndef FORCE
+	$(warning NYI: git version check)
+endif
+	@true
