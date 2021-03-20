@@ -4,6 +4,7 @@
 
 (library
  (name mattlude)
+ (public_name mattlude)
  (libraries prelude versioj)
  (inline_tests (backend qtest.lib)))
 

@@ -8,7 +8,7 @@
 open Prelude
 
 (** [version] is the library version metadata alist. *)
-let version = V.data
+(* let version = V.data *)
 
 module type FUNCTOR = sig
   type 'a t
@@ -36,7 +36,7 @@ module FunctorGoodies (F : FUNCTOR) = struct
 end
                   
 module ApplicativeGoodies (A : APPLICATIVE) = struct
-  include FunctorGoodies(A)
+  include FunctorGoodies (A)
   let (and+) = A.product
   let apply af ax =
     A.map
@@ -56,7 +56,7 @@ module MonadGoodies (M : MONAD) = struct
 end
                                
 module Monad2App (M : MONAD) = struct
-  include MonadGoodies(M)
+  include MonadGoodies (M)
 
   (* reduction of applicative interface to monadic interface *)
   let map f mx = let* x = mx in
@@ -71,7 +71,7 @@ module Monad2App (M : MONAD) = struct
     let product = product
   end
 
-  include ApplicativeGoodies(I)
+  include ApplicativeGoodies (I)
   let ( <* ) ax ay = pure k <*> ax <*> ay
   let ( *> ) ax ay = pure (flip k) <*> ax <*> ay
 end
@@ -93,7 +93,7 @@ module Option = struct
     let bind = Option.(>>=)
   end
 
-  include Monad2App(OptionMonad)
+  include Monad2App (OptionMonad)
 end
 let cat_options = Option.cat_options
 
@@ -113,7 +113,7 @@ module ResultF (E : ERROR) = struct
     let bind = Result.(>>=)
   end
 
-  include Monad2App(ResultMonad)
+  include Monad2App (ResultMonad)
 end
 
 module type MONOID = sig
@@ -186,12 +186,12 @@ module ParserF (T : TOKEN) (E : ERROR) = struct
 end
 
 
-module StringParserF (E : ERROR) = struct
-  module PResult = ResultF (E)
+module StringParserF = struct
+  module PResult = ResultF (String)
 
   module ParserMonad = struct
     type 'output t =
-      string -> (('output * string), E.t) result
+      string -> (('output * string), string) result
     let pure x = fun stream -> PResult.ok (x, stream)
     let bind prsr k = let open PResult in 
                       fun input ->
@@ -211,28 +211,35 @@ module StringParserF (E : ERROR) = struct
    * let empty = pfail *)
 
   module KleisliArrows = struct
-    let satisfy pred = function
-      | [] -> PResult.error "end of file"
-      | tok :: toks -> if pred tok
-                       then PResult.ok (tok, toks)
-                       else PResult.error "error: satisfy"
+    let satisfy pred = let open String in function
+      | "" -> PResult.error "end of file"
+      | str ->
+         let head = str.[0] in
+         let tail = sub str 1 (length str - 1) in
+         if pred head
+         then PResult.ok (head, tail)
+         else PResult.error "error: satisfy"
 
     let munch1 pred input =
+      let open String in
       let rec span pred = function
-        | [] -> ([], [])
-        | x :: xs as lst -> 
-           if pred x
-           then x :: fst (span pred xs), snd (span pred xs)
-           else [], lst
+        | "" -> ("", "")
+        | str ->
+           let head = sub str 0 1 in
+           let recurse = sub str 1 (length str - 1) |> span pred in
+           if pred str.[0]
+           then 
+                head ^ fst recurse, snd recurse
+           else "", str
       in
       match span pred input with
-      | ([],_) -> PResult.error "error: span"
+      | ("",_) -> PResult.error "error: span"
       | _ -> PResult.ok (span pred input)
 
     let eof = function
-      | [] -> PResult.ok ((), [])
+      | "" -> PResult.ok ((), "")
       | _ -> PResult.error "error: eof"
-
+    
     let char c = satisfy (fun x -> x = c)
 
     let parse_string prsr str =
@@ -240,6 +247,18 @@ module StringParserF (E : ERROR) = struct
       | Ok (output, []) -> Ok output
       | Error _ as e -> e
       | _ -> Error "partial parse"
+
+    let succeed = satisfy (fun _ -> true)
+
+    let string str = 
+      let concat_char strP chrP =
+        let+ str = strP
+        and+ chr = chrP in
+        str ^ String.make 1 chr
+      in
+      let exploded = String.explode str in
+      let parser_list = List.map char exploded in
+      foldl concat_char (pure "") parser_list
            
     (* let string str =
      *   let reducer prsr1 prsr2 input = 
