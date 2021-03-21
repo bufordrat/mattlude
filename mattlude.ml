@@ -251,14 +251,12 @@ module StringParserF = struct
     let succeed = satisfy (fun _ -> true)
 
     let string str = 
-      let concat_char strP chrP =
+      let concat_char strP chr =
         let+ str = strP
-        and+ chr = chrP in
+        and+ chr = char chr in
         str ^ String.make 1 chr
       in
-      let exploded = String.explode str in
-      let parser_list = List.map char exploded in
-      foldl concat_char (pure "") parser_list
+      String.foldl concat_char (pure "") str
            
     (* let string str =
      *   let reducer prsr1 prsr2 input = 
