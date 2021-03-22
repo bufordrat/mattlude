@@ -150,10 +150,6 @@ module ParserF (T : TOKEN) (E : ERROR) = struct
   let (<|>) = alternative
 
   let run_parser prsr input = prsr input
-            
-  (* let pfail = k @@ PResult.error "pfail"
-   * 
-   * let empty = pfail *)
 
   module KleisliArrows = struct
     let satisfy pred = function
@@ -180,7 +176,6 @@ module ParserF (T : TOKEN) (E : ERROR) = struct
 
     let token tok = satisfy (fun x -> x = tok)
                      
-    (* let append_token tok = map (fun tok lst -> lst ++ tok) (token tok) *)
   end
   include KleisliArrows
 end
@@ -205,10 +200,6 @@ module StringParserF = struct
     | Error _ -> prsr2 input
     | _ -> prsr1 input
   let (<|>) = alternative
-            
-  (* let pfail = k @@ PResult.error "pfail"
-   * 
-   * let empty = pfail *)
 
   module KleisliArrows = struct
     let satisfy pred = let open String in function
@@ -219,22 +210,6 @@ module StringParserF = struct
          if pred head
          then PResult.ok (head, tail)
          else PResult.error "error: satisfy"
-
-    let munch1 pred input =
-      let open String in
-      let rec span pred = function
-        | "" -> ("", "")
-        | str ->
-           let head = sub str 0 1 in
-           let recurse = sub str 1 (length str - 1) |> span pred in
-           if pred str.[0]
-           then 
-                head ^ fst recurse, snd recurse
-           else "", str
-      in
-      match span pred input with
-      | ("",_) -> PResult.error "error: span"
-      | _ -> PResult.ok (span pred input)
 
     let eof = function
       | "" -> PResult.ok ((), "")
@@ -247,8 +222,6 @@ module StringParserF = struct
       | Ok (output, []) -> Ok output
       | Error _ as e -> e
       | _ -> Error "partial parse"
-
-    let succeed input = PResult.ok input
 
     let fail _ = PResult.error "error: pfail"
                 
@@ -267,11 +240,11 @@ module StringParserF = struct
 
     let many1 prsr = pure cons <*> prsr <*> many prsr
 
+    let munch1 = many << satisfy
+
   end
   include KleisliArrows
 end
-
-
                 
 
 (*
