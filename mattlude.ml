@@ -258,6 +258,17 @@ module StringParserF = struct
 
     let many1 prsr = pure cons <*> prsr <*> many prsr
 
+    let sepBy1 prsr sepPrsr =
+      let+ initial = many (prsr <* sepPrsr)
+      and+ final = prsr
+      in initial @ [final]
+
+    let skip_spaces =
+      let is_space chr =
+        String.mem chr "\r\n\t "
+      in
+      pure () <* munch1 is_space <|> pure ()
+       
   end
   include KleisliArrows
 end
