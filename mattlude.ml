@@ -248,8 +248,10 @@ module StringParserF = struct
       | Error _ as e -> e
       | _ -> Error "partial parse"
 
-    let succeed = satisfy (fun _ -> true)
+    let succeed input = PResult.ok input
 
+    let fail _ = PResult.error "error: pfail"
+                
     let string str = 
       let concat_char strP chr =
         let+ str = strP
@@ -257,16 +259,14 @@ module StringParserF = struct
         str ^ String.make 1 chr
       in
       String.foldl concat_char (pure "") str
-           
-    (* let string str =
-     *   let reducer prsr1 prsr2 input = 
-     *     let appendP = map (^) prsr1 in
-     *     prsr1 >=> prsr2
-     *   in
-     *   let chars =
-     *     List.map char (String.explode str)
-     *   in
-     *   foldl (>>) (pure "") chars *)
+
+    let rec many prsr input =
+      match prsr input with
+      | Ok _ -> (pure cons <*> prsr <*> many prsr) input
+      | Error _ -> (pure []) input
+
+    let many1 prsr = pure cons <*> prsr <*> many prsr
+
   end
   include KleisliArrows
 end
