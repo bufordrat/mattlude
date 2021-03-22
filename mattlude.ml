@@ -258,7 +258,7 @@ module StringParserF = struct
 
     let many1 prsr = pure cons <*> prsr <*> many prsr
 
-    let sepBy1 prsr sepPrsr =
+    let sep_by1 prsr sepPrsr =
       let+ initial = many (prsr <* sepPrsr)
       and+ final = prsr
       in initial @ [final]
