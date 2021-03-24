@@ -121,20 +121,30 @@ module type MONOID = sig
   val empty : 'a t
   val (++) : 'a t -> 'a t -> 'a t
 end
-                           
-module type TOKEN = sig
+
+module type FOLDABLE = sig
   include MONOID
-  type tok
-  type stream = tok t
-  val end_insert : tok -> tok t -> tok t
+  val foldl : ('b -> 'a -> 'b) -> 'b -> 'a t -> 'b
+end
+
+module type CONSABLE = sig
+  include FOLDABLE
+  val hd : 'a t -> 'a option
+  val cons : 'a -> 'a t -> 'a t
 end
                            
-module ParserF (T : TOKEN) (E : ERROR) = struct
-  module PResult = ResultF (E)
+module type TOKEN = sig
+  include CONSABLE
+  type tok
+  type stream = tok t
+end
+
+module ParserF (T : TOKEN) = struct
+  module PResult = ResultF (String)
 
   module ParserMonad = struct
     type 'output t =
-      T.stream -> (('output * T.stream), E.t) result
+      T.stream -> (('output * T.stream), string) result
     let pure x = fun stream -> PResult.ok (x, stream)
     let bind prsr k = let open PResult in 
                       fun input ->
@@ -175,6 +185,12 @@ module ParserF (T : TOKEN) (E : ERROR) = struct
       | _ -> PResult.error "error: eof"
 
     let token tok = satisfy (fun x -> x = tok)
+
+    (* let tokens toks =
+     *   let concat_tok toksP tok =
+     *     let+ toks = toksP
+     *     and+ t = token tok in
+     *     toks @  *)
                      
   end
   include KleisliArrows
@@ -233,6 +249,14 @@ module StringParserF = struct
     
     let char c = satisfy (fun x -> x = c)
 
+    let string str = 
+      let concat_char strP chr =
+        let+ str = strP
+        and+ chr = char chr in
+        str ^ String.make 1 chr
+      in
+      String.foldl concat_char (pure "") str
+               
     let parse_string prsr str =
       match prsr str with
       | Ok (output, []) -> Ok output
@@ -243,14 +267,6 @@ module StringParserF = struct
 
     let fail _ = PResult.error "error: pfail"
                 
-    let string str = 
-      let concat_char strP chr =
-        let+ str = strP
-        and+ chr = char chr in
-        str ^ String.make 1 chr
-      in
-      String.foldl concat_char (pure "") str
-
     let rec many prsr input =
       match prsr input with
       | Ok _ -> (pure cons <*> prsr <*> many prsr) input
@@ -268,10 +284,65 @@ module StringParserF = struct
         String.mem chr "\r\n\t "
       in
       pure () <* munch1 is_space <|> pure ()
-       
   end
   include KleisliArrows
 end
+
+
+
+
+(* module ParserF (T : TOKEN) (E : ERROR) = struct
+ *   module PResult = ResultF (E)
+ * 
+ *   module ParserMonad = struct
+ *     type 'output t =
+ *       T.stream -> (('output * T.stream), E.t) result
+ *     let pure x = fun stream -> PResult.ok (x, stream)
+ *     let bind prsr k = let open PResult in 
+ *                       fun input ->
+ *                       let* (result1, remainder1) = prsr input in
+ *                       (k result1) remainder1
+ *   end
+ *   include Monad2App (ParserMonad)
+ * 
+ *   let alternative prsr1 prsr2 input =
+ *     match prsr1 input with
+ *     | Error _ -> prsr2 input
+ *     | _ -> prsr1 input
+ *   let (<|>) = alternative
+ * 
+ *   let run_parser prsr input = prsr input
+ *             
+ *   module KleisliArrows = struct
+ *     let satisfy pred = function
+ *       | [] -> PResult.error "end of file"
+ *       | tok :: toks -> if pred tok
+ *                        then PResult.ok (tok, toks)
+ *                        else PResult.error "error: satisfy"
+ * 
+ *     let munch1 pred input =
+ *       let rec span pred = function
+ *         | [] -> ([], [])
+ *         | x :: xs as lst -> 
+ *            if pred x
+ *            then x :: fst (span pred xs), snd (span pred xs)
+ *            else [], lst
+ *       in
+ *       match span pred input with
+ *       | ([],_) -> PResult.error "error: span"
+ *       | _ -> PResult.ok (span pred input)
+ * 
+ *     let eof = function
+ *       | [] -> PResult.ok ((), [])
+ *       | _ -> PResult.error "error: eof"
+ * 
+ *     let token tok = satisfy (fun x -> x = tok)
+ *                      
+ *   end
+ *   include KleisliArrows
+ * end *)
+
+
 
 
                 
