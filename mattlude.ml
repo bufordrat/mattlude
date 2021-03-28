@@ -226,8 +226,7 @@ module StringParserF = struct
            let head = sub str 0 1 in
            let recurse = sub str 1 (length str - 1) |> span pred in
            if pred str.[0]
-           then 
-                head ^ fst recurse, snd recurse
+           then head ^ fst recurse, snd recurse
            else "", str
       in
       match span pred input with
