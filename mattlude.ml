@@ -127,16 +127,12 @@ module type FOLDABLE = sig
   val foldl : ('b -> 'a -> 'b) -> 'b -> 'a t -> 'b
 end
 
-module type CONSABLE = sig
-  include FOLDABLE
-  val hd : 'a t -> 'a option
-  val cons : 'a -> 'a t -> 'a t
-end
-                           
 module type TOKEN = sig
-  include CONSABLE
+  include FOLDABLE
   type tok
   type stream = tok t
+  val head : 'tok t -> 'tok option
+  val cons : 'tok -> 'tok t -> 'tok t
 end
 
 module ParserF (T : TOKEN) = struct
@@ -168,29 +164,24 @@ module ParserF (T : TOKEN) = struct
                        then PResult.ok (tok, toks)
                        else PResult.error "error: satisfy"
 
-    let munch1 pred input =
-      let rec span pred = function
-        | [] -> ([], [])
-        | x :: xs as lst -> 
-           if pred x
-           then x :: fst (span pred xs), snd (span pred xs)
-           else [], lst
-      in
-      match span pred input with
-      | ([],_) -> PResult.error "error: span"
-      | _ -> PResult.ok (span pred input)
-
     let eof = function
-      | [] -> PResult.ok ((), [])
+      | r when r = T.empty -> PResult.ok ((), T.empty)
       | _ -> PResult.error "error: eof"
 
     let token tok = satisfy (fun x -> x = tok)
 
-    (* let tokens toks =
-     *   let concat_tok toksP tok =
-     *     let+ toks = toksP
-     *     and+ t = token tok in
-     *     toks @  *)
+    let rec many prsr input =
+      match prsr input with
+      | Ok _ -> (pure T.cons <*> prsr <*> many prsr) input
+      | Error _ -> (pure T.empty) input
+
+    let many1 prsr = pure T.cons <*> prsr <*> many prsr
+
+    let sep_by1 prsr sepPrsr =
+      let+ initial = many (prsr <* sepPrsr)
+      and+ final = prsr
+      in let open T in
+         initial ++ (cons final empty)
                      
   end
   include KleisliArrows
@@ -283,11 +274,81 @@ module StringParserF = struct
       let is_space chr =
         String.mem chr "\r\n\t "
       in
-      pure () <* munch1 is_space <|> pure ()
+      pure () <* munch1 is_space
   end
   include KleisliArrows
 end
 
+                     
+module Example = struct
+
+  module Lex = struct
+    type binop =
+      | Plus
+      | Minus
+      | Times
+      | Div
+
+    let char_to_binop = function
+      | '+' -> Plus
+      | '-' -> Minus
+      | '*' -> Times
+      | '/' -> Div
+      | _ -> assert false
+           
+    type lexeme =
+      | LParen
+      | RParen
+      | Op of binop
+      | Num of int
+      | Space
+
+    module Lexer = StringParserF 
+
+    let lexP = let open Lexer in
+               (pure LParen <* satisfy (eq '('))
+               <|> (pure RParen <* satisfy (eq ')'))
+               <|> (pure (fun o -> Op (char_to_binop o))
+                    <*> satisfy (fun chr -> String.mem chr "+*/-"))
+               <|> (pure (fun str -> Num (int_of_string str))
+                    <*> munch1 (Char.Decimal.is))
+               <|> (pure Space <* skip_spaces)
+
+    let lex str =
+      match Lexer.many1 lexP str with
+      | Ok (lst, "") -> Ok lst
+      | Ok (_, _) -> Error "lexing error"
+      | Error e -> Error e
+  end
+
+  module Parse = struct
+
+    module ListTok : TOKEN =
+      struct
+        include List
+        type tok = Lex.lexeme
+        type stream = tok List.t
+        let head = List.head
+        let cons = List.cons
+        let foldl = List.foldl
+        let (++) = (@)
+        let empty = []
+      end
+    
+    type binop =
+      | Plus of (exp * exp)
+      | Minus of (exp * exp)
+      | Times of (exp * exp)
+      | Div of (exp * exp)
+
+    and num = Num of int
+
+    and exp =
+      | Num_exp of num
+      | Op_exp of binop
+  end
+             
+end
 
 
 
@@ -342,6 +403,20 @@ end
  *   include KleisliArrows
  * end *)
 
+
+
+                         
+    (* let munch1 pred input =
+     *   let rec span pred = function
+     *     | [] -> ([], [])
+     *     | x :: xs as lst -> 
+     *        if pred x
+     *        then x :: fst (span pred xs), snd (span pred xs)
+     *        else [], lst
+     *   in
+     *   match span pred input with
+     *   | ([],_) -> PResult.error "error: span"
+     *   | _ -> PResult.ok (span pred input) *)
 
 
 
