@@ -131,6 +131,7 @@ module type TOKEN = sig
   include FOLDABLE
   type tok
   type stream = tok t
+  val hd : 'tok t -> 'tok
   val head : 'tok t -> 'tok option
   val cons : 'tok -> 'tok t -> 'tok t
 end
@@ -159,10 +160,13 @@ module ParserF (T : TOKEN) = struct
             
   module KleisliArrows = struct
     let satisfy pred = function
-      | [] -> PResult.error "end of file"
-      | tok :: toks -> if pred tok
-                       then PResult.ok (tok, toks)
-                       else PResult.error "error: satisfy"
+      | r when r = T.empty -> PResult.error "end of file"
+      | toks -> if pred (T.hd toks)
+                then PResult.ok (T.hd toks, toks)
+                else PResult.error "error: satisfy"
+         (* if pred (unsafe_head toks)
+          * then PResult.ok (tok, toks)
+          * else PResult.error "error: satisfy" *)
 
     let eof = function
       | r when r = T.empty -> PResult.ok ((), T.empty)
@@ -327,6 +331,7 @@ module Example = struct
         include List
         type tok = Lex.lexeme
         type stream = tok List.t
+        let hd = List.hd
         let head = List.head
         let cons = List.cons
         let foldl = List.foldl
@@ -345,8 +350,22 @@ module Example = struct
     and exp =
       | Num_exp of num
       | Op_exp of binop
+
+    module Parser = ParserF (ListTok)
+
+    (* let numP =
+     *   let open Parser in
+     *   pure (function (Lex.Num n) -> Num n | _ -> assert false)
+     *   <*> satisfy (function (Lex.Num _) -> true | _ -> false) *)
+                  
+    (* let num_expP = let open Parser in
+     *                pure (fun n -> Num_exp n)
+     *                <*> satisfy  *)
+
   end
-             
+
+
+
 end
 
 
