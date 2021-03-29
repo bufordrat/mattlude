@@ -159,6 +159,13 @@ module ParserF (T : TOKEN) = struct
   let run_parser prsr input = prsr input
             
   module KleisliArrows = struct
+
+    let succeed input = PResult.ok input
+
+    let fail _ = PResult.error "error: pfail"
+
+    let choice prsrs = List.foldl (<|>) fail prsrs
+               
     let satisfy pred = function
       | r when r = T.empty -> PResult.error "end of file"
       | toks -> if pred (T.hd toks)
@@ -213,6 +220,13 @@ module StringParserF = struct
   let (<|>) = alternative
             
   module KleisliArrows = struct
+
+    let succeed input = PResult.ok input
+
+    let fail _ = PResult.error "error: pfail"
+
+    let choice prsrs = List.foldl (<|>) fail prsrs
+    
     let satisfy pred = let open String in function
       | "" -> PResult.error "end of file"
       | str ->
@@ -256,10 +270,6 @@ module StringParserF = struct
       | Ok (output, []) -> Ok output
       | Error _ as e -> e
       | _ -> Error "partial parse"
-
-    let succeed input = PResult.ok input
-
-    let fail _ = PResult.error "error: pfail"
                 
     let rec many prsr input =
       match prsr input with
@@ -308,15 +318,24 @@ module Example = struct
 
     module Lexer = StringParserF 
 
-    let lexP = let open Lexer in
-               (pure LParen <* satisfy (eq '('))
-               <|> (pure RParen <* satisfy (eq ')'))
-               <|> (pure (fun o -> Op (char_to_binop o))
-                    <*> satisfy (fun chr -> String.mem chr "+*/-"))
-               <|> (pure (fun str -> Num (int_of_string str))
-                    <*> munch1 (Char.Decimal.is))
-               <|> (pure Space <* skip_spaces)
-
+    let lexP =
+      let open Lexer in
+      let lparenP = pure LParen <* satisfy (eq '(') in
+      let rparenP = pure RParen <* satisfy (eq ')') in
+      let opP = 
+        let is_op_chr chr = String.mem chr "+*/-" in
+        let mk_op o = Op (char_to_binop o) in
+        let+ op_chr = satisfy is_op_chr
+        in mk_op op_chr
+      in
+      let numP =
+        let mk_num str = Num (int_of_string str) in
+        let+ numstring = munch1 (Char.Decimal.is)
+        in mk_num numstring
+      in
+      let spaceP = pure Space <* skip_spaces in
+      choice [ lparenP; rparenP; opP; numP; spaceP ]
+                                     
     let lex str =
       match Lexer.many1 lexP str with
       | Ok (lst, "") -> Ok lst
@@ -331,10 +350,6 @@ module Example = struct
         include List
         type tok = Lex.lexeme
         type stream = tok List.t
-        let hd = List.hd
-        let head = List.head
-        let cons = List.cons
-        let foldl = List.foldl
         let (++) = (@)
         let empty = []
       end
@@ -355,12 +370,24 @@ module Example = struct
 
     let numP =
       let open Parser in
-      pure (function (Lex.Num n) -> Num n | _ -> assert false)
-      <*> satisfy (function (Lex.Num _) -> true | _ -> false)
+      let make_num = function
+        | Lex.Num n -> Num n
+        | _ -> assert false
+      in
+      let is_num =
+        function Lex.Num _ -> true | _ -> false
+      in
+      let+ lexeme = satisfy is_num
+      in make_num lexeme
                   
-    (* let num_expP = let open Parser in
-     *                pure (fun n -> Num_exp n)
-     *                <*> satisfy  *)
+    let num_expP =
+      let open Parser in
+      pure (fun n -> Num_exp n)
+
+    (* let binopP =
+     *   let plusP =
+     *     let mk_plus exp1 exp2 = Plus (exp1, exp2) in
+     *     let  *)
 
   end
 
