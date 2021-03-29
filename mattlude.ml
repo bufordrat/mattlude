@@ -326,7 +326,7 @@ module Example = struct
 
   module Parse = struct
 
-    module ListTok : TOKEN =
+    module ListTok =
       struct
         include List
         type tok = Lex.lexeme
@@ -353,10 +353,10 @@ module Example = struct
 
     module Parser = ParserF (ListTok)
 
-    (* let numP =
-     *   let open Parser in
-     *   pure (function (Lex.Num n) -> Num n | _ -> assert false)
-     *   <*> satisfy (function (Lex.Num _) -> true | _ -> false) *)
+    let numP =
+      let open Parser in
+      pure (function (Lex.Num n) -> Num n | _ -> assert false)
+      <*> satisfy (function (Lex.Num _) -> true | _ -> false)
                   
     (* let num_expP = let open Parser in
      *                pure (fun n -> Num_exp n)
