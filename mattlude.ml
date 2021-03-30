@@ -389,14 +389,7 @@ module Example = struct
     and exp =
       | Num_exp of num
       | Op_exp of binop
-                
-    let is_num_exp = function Num_exp _ -> true | _ -> false
-    let is_op_exp = function Op_exp _ -> true | _ -> false
-                
-    (* let mk_plus exp1 exp2 = Op_exp (Plus (Num_exp (exp1), (Num_exp ( exp2))))
-     * let mk_minus exp1 exp2 = Op_exp (Minus (Num_exp (exp1), (Num_exp (exp2))))
-     * let mk_times exp1 exp2 = Op_exp (Times (Num_exp (exp1), Num_exp ( exp2)))
-     * let mk_div exp1 exp2 = Op_exp (Div (Num_exp (exp1), Num_exp (exp2))) *)
+
     let mk_plus exp1 exp2 = Plus (exp1, exp2) 
     let mk_minus exp1 exp2 = Minus (exp1, exp2)
     let mk_times exp1 exp2 = Times (exp1, exp2)
