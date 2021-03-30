@@ -391,7 +391,6 @@ module Example = struct
     let mk_minus exp1 exp2 = Minus (exp1, exp2)
     let mk_times exp1 exp2 = Times (exp1, exp2)
     let mk_div exp1 exp2 = Div (exp1, exp2)
-    let mk_num n = Num n
     let mk_numexp n = Num_exp n
     let mk_opexp o = Op_exp o
                            
@@ -403,12 +402,12 @@ module Example = struct
                   
     let numP =
       let open Parser in
-      let make_num = function
+      let mk_num = function
         | Lex.Num n -> Num n
         | _ -> assert false
       in
       let+ lexeme = satisfy Lex.is_num
-      in make_num lexeme
+      in mk_num lexeme
        
     let rec binopP input =
       let open Parser in
