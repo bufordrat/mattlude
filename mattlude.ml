@@ -153,9 +153,19 @@ module ParserF (T : TOKEN) = struct
   include Monad2App (ParserMonad)
 
   let alternative prsr1 prsr2 input =
+    let is_ok = function
+      | Ok _ -> true
+      | _ -> false
+    in
+    if is_ok (prsr1 input)
+    then prsr1 input
+    else prsr2 input
+        
+  let alternative prsr1 prsr2 input =
     match prsr1 input with
     | Error _ -> prsr2 input
     | _ -> prsr1 input
+         
   let (<|>) = alternative
 
   let run_parser prsr input = prsr input
@@ -410,33 +420,34 @@ module Example = struct
       let+ lexeme = satisfy Lex.is_num
       in make_num lexeme
        
-    let rec binopP () =
+    let rec binopP input =
       let open Parser in
       let open Lex in
       let op prsr pred =
           pure prsr
           <* (satisfy is_lparen)
           <* skip_spaces
-          <*> expP ()
+          <*> expP
           <* skip_spaces
           <* (satisfy pred)
           <* skip_spaces
-          <*> expP ()
+          <*> expP
           <* skip_spaces
           <* (satisfy is_rparen)
       in
-      choice [
+      (choice [
           op mk_plus is_plus ;
           op mk_minus is_minus ;
           op mk_times is_times ;
           op mk_div is_div ;
-        ]
+        ]) input
       
-    and expP () =
+    and expP input =
       let open Parser in
-      (pure mk_numexp <*> numP)
-      <|>
-      (pure mk_opexp <*> binopP ())
+      (choice [
+          pure mk_numexp <*> numP ;
+          pure mk_opexp <*> binopP ;
+        ]) input
 
   end
 
