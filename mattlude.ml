@@ -441,80 +441,9 @@ module Example = struct
           pure mk_numexp <*> numP ;
           pure mk_opexp <*> binopP ;
         ]) input
-
   end
-
-
-
 end
 
-
-
-(* module ParserF (T : TOKEN) (E : ERROR) = struct
- *   module PResult = ResultF (E)
- * 
- *   module ParserMonad = struct
- *     type 'output t =
- *       T.stream -> (('output * T.stream), E.t) result
- *     let pure x = fun stream -> PResult.ok (x, stream)
- *     let bind prsr k = let open PResult in 
- *                       fun input ->
- *                       let* (result1, remainder1) = prsr input in
- *                       (k result1) remainder1
- *   end
- *   include Monad2App (ParserMonad)
- * 
- *   let alternative prsr1 prsr2 input =
- *     match prsr1 input with
- *     | Error _ -> prsr2 input
- *     | _ -> prsr1 input
- *   let (<|>) = alternative
- * 
- *   let run_parser prsr input = prsr input
- *             
- *   module KleisliArrows = struct
- *     let satisfy pred = function
- *       | [] -> PResult.error "end of file"
- *       | tok :: toks -> if pred tok
- *                        then PResult.ok (tok, toks)
- *                        else PResult.error "error: satisfy"
- * 
- *     let munch1 pred input =
- *       let rec span pred = function
- *         | [] -> ([], [])
- *         | x :: xs as lst -> 
- *            if pred x
- *            then x :: fst (span pred xs), snd (span pred xs)
- *            else [], lst
- *       in
- *       match span pred input with
- *       | ([],_) -> PResult.error "error: span"
- *       | _ -> PResult.ok (span pred input)
- * 
- *     let eof = function
- *       | [] -> PResult.ok ((), [])
- *       | _ -> PResult.error "error: eof"
- * 
- *     let token tok = satisfy (fun x -> x = tok)
- *                      
- *   end
- *   include KleisliArrows
- * end *)
-
-
-
-                         
-    (* let munch1 pred input =
-     *   let rec span pred = function
-     *     | [] -> ([], [])
-     *     | x :: xs as lst -> 
-     *        if pred x
-     *        then x :: fst (span pred xs), snd (span pred xs)
-     *        else [], lst
-     *   in
-     *   match span pred input with
-     *   | ([],_) -> PResult.error "error: span"
-     *   | _ -> PResult.ok (span pred input) *)
 
 
 
