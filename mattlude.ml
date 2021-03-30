@@ -383,14 +383,14 @@ module Example = struct
     let is_num_exp = function Num_exp _ -> true | _ -> false
     let is_op_exp = function Op_exp _ -> true | _ -> false
                 
-    let mk_plus exp1 exp2 = Op_exp (Plus (Num_exp (exp1), (Num_exp ( exp2))))
-    let mk_minus exp1 exp2 = Op_exp (Minus (Num_exp (exp1), (Num_exp (exp2))))
-    let mk_times exp1 exp2 = Op_exp (Times (Num_exp (exp1), Num_exp ( exp2)))
-    let mk_div exp1 exp2 = Op_exp (Div (Num_exp (exp1), Num_exp (exp2)))
-    (* let mk_plus exp1 exp2 = Plus (exp1, exp2) 
-     * let mk_minus exp1 exp2 = Minus (exp1, exp2)
-     * let mk_times exp1 exp2 = Times (exp1, exp2)
-     * let mk_div exp1 exp2 = Div (exp1, exp2) *)
+    (* let mk_plus exp1 exp2 = Op_exp (Plus (Num_exp (exp1), (Num_exp ( exp2))))
+     * let mk_minus exp1 exp2 = Op_exp (Minus (Num_exp (exp1), (Num_exp (exp2))))
+     * let mk_times exp1 exp2 = Op_exp (Times (Num_exp (exp1), Num_exp ( exp2)))
+     * let mk_div exp1 exp2 = Op_exp (Div (Num_exp (exp1), Num_exp (exp2))) *)
+    let mk_plus exp1 exp2 = Plus (exp1, exp2) 
+    let mk_minus exp1 exp2 = Minus (exp1, exp2)
+    let mk_times exp1 exp2 = Times (exp1, exp2)
+    let mk_div exp1 exp2 = Div (exp1, exp2)
     let mk_num n = Num n
     let mk_numexp n = Num_exp n
     let mk_opexp o = Op_exp o
@@ -409,23 +409,22 @@ module Example = struct
       in
       let+ lexeme = satisfy Lex.is_num
       in make_num lexeme
-     
-    let binopP =
+       
+    let rec binopP () =
       let open Parser in
       let open Lex in
       let op prsr pred =
           pure prsr
           <* (satisfy is_lparen)
           <* skip_spaces
-          <*> numP
+          <*> expP ()
           <* skip_spaces
           <* (satisfy pred)
           <* skip_spaces
-          <*> numP
+          <*> expP ()
           <* skip_spaces
           <* (satisfy is_rparen)
       in
-      (* op mk_plus is_plus *)
       choice [
           op mk_plus is_plus ;
           op mk_minus is_minus ;
@@ -433,11 +432,11 @@ module Example = struct
           op mk_div is_div ;
         ]
       
-    (* and expP =
-     *   let open Parser in
-     *   (pure mk_numexp <*> numP)
-     *   <|>
-     *   (pure mk_opexp <*> binopP) *)
+    and expP () =
+      let open Parser in
+      (pure mk_numexp <*> numP)
+      <|>
+      (pure mk_opexp <*> binopP ())
 
   end
 
