@@ -185,9 +185,6 @@ module ParserF (T : TOKEN) = struct
       | toks -> if pred (T.hd toks)
                 then PResult.ok (T.hd toks, T.tl toks)
                 else PResult.error "error: satisfy"
-         (* if pred (unsafe_head toks)
-          * then PResult.ok (tok, toks)
-          * else PResult.error "error: satisfy" *)
 
     let eof = function
       | r when r = T.empty -> PResult.ok ((), T.empty)
