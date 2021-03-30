@@ -428,19 +428,19 @@ module Example = struct
           <* skip_spaces
           <* (satisfy is_rparen)
       in
-      (choice [
+      choice [
           op mk_plus is_plus ;
           op mk_minus is_minus ;
           op mk_times is_times ;
           op mk_div is_div ;
-        ]) input
+        ] @@ input
       
     and expP input =
       let open Parser in
-      (choice [
+      choice [
           pure mk_numexp <*> numP ;
           pure mk_opexp <*> binopP ;
-        ]) input
+        ] @@ input
   end
 end
 
