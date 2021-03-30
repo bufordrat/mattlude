@@ -132,6 +132,8 @@ module type TOKEN = sig
   type tok
   type stream = tok t
   val hd : 'tok t -> 'tok
+  val tl : 'tok t -> 'tok t
+  val tail : 'tok t -> ('tok t) option
   val head : 'tok t -> 'tok option
   val cons : 'tok -> 'tok t -> 'tok t
 end
@@ -165,11 +167,13 @@ module ParserF (T : TOKEN) = struct
     let fail _ = PResult.error "error: pfail"
 
     let choice prsrs = List.foldl (<|>) fail prsrs
-               
+
+    let optional prsr = prsr *> pure () <|> pure ()
+                     
     let satisfy pred = function
       | r when r = T.empty -> PResult.error "end of file"
       | toks -> if pred (T.hd toks)
-                then PResult.ok (T.hd toks, toks)
+                then PResult.ok (T.hd toks, T.tl toks)
                 else PResult.error "error: satisfy"
          (* if pred (unsafe_head toks)
           * then PResult.ok (tok, toks)
@@ -226,7 +230,9 @@ module StringParserF = struct
     let fail _ = PResult.error "error: pfail"
 
     let choice prsrs = List.foldl (<|>) fail prsrs
-    
+
+    let optional prsr = prsr *> pure () <|> pure ()
+                     
     let satisfy pred = let open String in function
       | "" -> PResult.error "end of file"
       | str ->
@@ -283,11 +289,14 @@ module StringParserF = struct
       and+ final = prsr
       in initial @ [final]
 
-    let skip_spaces =
+    let skip_spaces1 =
       let is_space chr =
         String.mem chr "\r\n\t "
       in
       pure () <* munch1 is_space
+
+    let skip_spaces = skip_spaces1 <|> pure ()
+
   end
   include KleisliArrows
 end
@@ -295,12 +304,16 @@ end
                      
 module Example = struct
 
-  module Lex = struct
-    type binop =
+  module Lex = struct         
+    type lexeme =
+      | LParen
+      | RParen
       | Plus
       | Minus
       | Times
       | Div
+      | Num of int
+      | Space
 
     let char_to_binop = function
       | '+' -> Plus
@@ -308,13 +321,15 @@ module Example = struct
       | '*' -> Times
       | '/' -> Div
       | _ -> assert false
-           
-    type lexeme =
-      | LParen
-      | RParen
-      | Op of binop
-      | Num of int
-      | Space
+
+    let is_plus = function Plus -> true | _ -> false 
+    let is_minus = function Minus -> true | _ -> false 
+    let is_times = function Times -> true | _ -> false 
+    let is_div = function Div -> true | _ -> false 
+    let is_lparen = function LParen -> true | _ -> false
+    let is_rparen = function RParen -> true | _ -> false
+    let is_space = function Space -> true | _ -> false
+    let is_num = function Num _ -> true | _ -> false
 
     module Lexer = StringParserF 
 
@@ -324,16 +339,15 @@ module Example = struct
       let rparenP = pure RParen <* satisfy (eq ')') in
       let opP = 
         let is_op_chr chr = String.mem chr "+*/-" in
-        let mk_op o = Op (char_to_binop o) in
         let+ op_chr = satisfy is_op_chr
-        in mk_op op_chr
+        in char_to_binop op_chr
       in
       let numP =
         let mk_num str = Num (int_of_string str) in
         let+ numstring = munch1 (Char.Decimal.is)
         in mk_num numstring
       in
-      let spaceP = pure Space <* skip_spaces in
+      let spaceP = pure Space <* skip_spaces1 in
       choice [ lparenP; rparenP; opP; numP; spaceP ]
                                      
     let lex str =
@@ -365,29 +379,65 @@ module Example = struct
     and exp =
       | Num_exp of num
       | Op_exp of binop
-
+                
+    let is_num_exp = function Num_exp _ -> true | _ -> false
+    let is_op_exp = function Op_exp _ -> true | _ -> false
+                
+    let mk_plus exp1 exp2 = Op_exp (Plus (Num_exp (exp1), (Num_exp ( exp2))))
+    let mk_minus exp1 exp2 = Op_exp (Minus (Num_exp (exp1), (Num_exp (exp2))))
+    let mk_times exp1 exp2 = Op_exp (Times (Num_exp (exp1), Num_exp ( exp2)))
+    let mk_div exp1 exp2 = Op_exp (Div (Num_exp (exp1), Num_exp (exp2)))
+    (* let mk_plus exp1 exp2 = Plus (exp1, exp2) 
+     * let mk_minus exp1 exp2 = Minus (exp1, exp2)
+     * let mk_times exp1 exp2 = Times (exp1, exp2)
+     * let mk_div exp1 exp2 = Div (exp1, exp2) *)
+    let mk_num n = Num n
+    let mk_numexp n = Num_exp n
+    let mk_opexp o = Op_exp o
+                           
     module Parser = ParserF (ListTok)
 
+    let skip_spaces =
+      let open Parser in
+      optional (satisfy Lex.is_space)
+                  
     let numP =
       let open Parser in
       let make_num = function
         | Lex.Num n -> Num n
         | _ -> assert false
       in
-      let is_num =
-        function Lex.Num _ -> true | _ -> false
-      in
-      let+ lexeme = satisfy is_num
+      let+ lexeme = satisfy Lex.is_num
       in make_num lexeme
-                  
-    let num_expP =
+     
+    let binopP =
       let open Parser in
-      pure (fun n -> Num_exp n)
-
-    (* let binopP =
-     *   let plusP =
-     *     let mk_plus exp1 exp2 = Plus (exp1, exp2) in
-     *     let  *)
+      let open Lex in
+      let op prsr pred =
+          pure prsr
+          <* (satisfy is_lparen)
+          <* skip_spaces
+          <*> numP
+          <* skip_spaces
+          <* (satisfy pred)
+          <* skip_spaces
+          <*> numP
+          <* skip_spaces
+          <* (satisfy is_rparen)
+      in
+      (* op mk_plus is_plus *)
+      choice [
+          op mk_plus is_plus ;
+          op mk_minus is_minus ;
+          op mk_times is_times ;
+          op mk_div is_div ;
+        ]
+      
+    (* and expP =
+     *   let open Parser in
+     *   (pure mk_numexp <*> numP)
+     *   <|>
+     *   (pure mk_opexp <*> binopP) *)
 
   end
 
