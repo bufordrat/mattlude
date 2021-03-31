@@ -119,12 +119,13 @@ end
 module type MONOID = sig
   type 'a t
   val empty : 'a t
-  val (++) : 'a t -> 'a t -> 'a t
+  val append : 'a t -> 'a t -> 'a t
 end
 
 module type FOLDABLE = sig
   include MONOID
   val foldl : ('b -> 'a -> 'b) -> 'b -> 'a t -> 'b
+  val null : 'a t -> bool
 end
 
 module type TOKEN = sig
@@ -134,7 +135,6 @@ module type TOKEN = sig
   val hd : 'tok t -> 'tok
   val tl : 'tok t -> 'tok t
   val cons : 'tok -> 'tok t -> 'tok t
-  val is_empty : 'tok t -> bool
 end
 
 module ParserF (T : TOKEN) = struct
@@ -180,7 +180,7 @@ module ParserF (T : TOKEN) = struct
     let optional prsr = prsr *> pure () <|> pure ()
                      
     let satisfy pred = function
-      | r when T.is_empty r -> PResult.error "end of file"
+      | r when T.null r -> PResult.error "end of file"
       | toks -> if pred (T.hd toks)
                 then PResult.ok (T.hd toks, T.tl toks)
                 else PResult.error "error: satisfy"
@@ -202,7 +202,7 @@ module ParserF (T : TOKEN) = struct
       let+ initial = many (prsr <* sepPrsr)
       and+ final = prsr
       in let open T in
-         initial ++ (cons final empty)
+         append initial (cons final empty)
                      
   end
   include KleisliArrows
@@ -369,10 +369,11 @@ module Example = struct
       struct
         include List
         type tok = Lex.lexeme
-        type stream = tok List.t
-        let (++) = (@)
+        type stream = tok t
         let empty = []
-        let is_empty = function [] -> true | _ -> false
+        let null = function
+          | [] -> true
+          | _ -> false
       end
 
     module SeqTok =
@@ -380,20 +381,10 @@ module Example = struct
         include Seq
         type tok = Lex.lexeme
         type stream = tok t
-        let hd s =
-          match s () with
-          | Seq.Cons (x,_) -> x
-          | Seq.Nil -> assert false
-        let tl s =
-          match s () with
-          | Seq.Cons (_,f) -> f
-          | Seq.Nil -> assert false
-        let is_empty s =
+        let null s =
           match s () with
           | Seq.Nil -> true
           | Seq.Cons _ -> false
-        let foldl = Seq.fold_left
-        let (++) = Seq.append
       end
       
     type num = Num of int
