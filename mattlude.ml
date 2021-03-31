@@ -134,6 +134,7 @@ module type TOKEN = sig
   val hd : 'tok t -> 'tok
   val tl : 'tok t -> 'tok t
   val cons : 'tok -> 'tok t -> 'tok t
+  val is_empty : 'tok t -> bool
 end
 
 module ParserF (T : TOKEN) = struct
@@ -179,7 +180,7 @@ module ParserF (T : TOKEN) = struct
     let optional prsr = prsr *> pure () <|> pure ()
                      
     let satisfy pred = function
-      | r when r = T.empty -> PResult.error "end of file"
+      | r when T.is_empty r -> PResult.error "end of file"
       | toks -> if pred (T.hd toks)
                 then PResult.ok (T.hd toks, T.tl toks)
                 else PResult.error "error: satisfy"
@@ -371,6 +372,7 @@ module Example = struct
         type stream = tok List.t
         let (++) = (@)
         let empty = []
+        let is_empty = function [] -> true | _ -> false
       end
 
     module SeqTok =
@@ -378,12 +380,20 @@ module Example = struct
         include Seq
         type tok = Lex.lexeme
         type stream = tok t
+        let hd s =
+          match s () with
+          | Seq.Cons (x,_) -> x
+          | Seq.Nil -> assert false
+        let tl s =
+          match s () with
+          | Seq.Cons (_,f) -> f
+          | Seq.Nil -> assert false
+        let is_empty s =
+          match s () with
+          | Seq.Nil -> true
+          | Seq.Cons _ -> false
         let foldl = Seq.fold_left
         let (++) = Seq.append
-        let hd s = s () |> fun (Seq.Cons (x,_)) -> x
-        let tl s = s () |> fun (Seq.Cons (_,f)) -> f
-        let cons = Seq.cons
-        let empty = Seq.empty
       end
       
     type num = Num of int
