@@ -133,8 +133,6 @@ module type TOKEN = sig
   type stream = tok t
   val hd : 'tok t -> 'tok
   val tl : 'tok t -> 'tok t
-  val tail : 'tok t -> ('tok t) option
-  val head : 'tok t -> 'tok option
   val cons : 'tok -> 'tok t -> 'tok t
 end
 
@@ -374,14 +372,27 @@ module Example = struct
         let (++) = (@)
         let empty = []
       end
-    
+
+    module SeqTok =
+      struct
+        include Seq
+        type tok = Lex.lexeme
+        type stream = tok t
+        let foldl = Seq.fold_left
+        let (++) = Seq.append
+        let hd s = s () |> fun (Seq.Cons (x,_)) -> x
+        let tl s = s () |> fun (Seq.Cons (_,f)) -> f
+        let cons = Seq.cons
+        let empty = Seq.empty
+      end
+      
+    type num = Num of int
+      
     type binop =
       | Plus of (exp * exp)
       | Minus of (exp * exp)
       | Times of (exp * exp)
       | Div of (exp * exp)
-
-    and num = Num of int
 
     and exp =
       | Num_exp of num
@@ -394,7 +405,7 @@ module Example = struct
     let mk_numexp n = Num_exp n
     let mk_opexp o = Op_exp o
                            
-    module Parser = ParserF (ListTok)
+    module Parser = ParserF (SeqTok)
 
     let skip_spaces =
       let open Parser in
