@@ -302,7 +302,7 @@ module StringParserF = struct
       pure () <* munch1 is_space
 
     let skip_spaces = skip_spaces1 <|> pure ()
-
+                    
   end
   include KleisliArrows
 end
@@ -374,7 +374,36 @@ module Example = struct
             match s () with
             | Seq.Nil -> true
             | Seq.Cons _ -> false
-        end
+      end
+
+      module Lexer = ParserF (SeqTok)
+
+      let lexP =
+        let open Lexer in
+        let lparenP = pure LParen <* satisfy (eq '(') in
+        let rparenP = pure RParen <* satisfy (eq ')') in
+        let opP = 
+          let is_op_chr chr = String.mem chr "+*/-" in
+          let+ op_chr = satisfy is_op_chr
+          in char_to_binop op_chr
+        in
+        let numP =
+          let seq_to_int =
+            int_of_string << String.implode << List.of_seq
+          in
+          let mk_num lst = Num (seq_to_int lst) in
+          let+ numstring = many1 (satisfy Char.Decimal.is)
+          in mk_num numstring
+        in
+        let spaceP = pure Space <* many1 (satisfy (fun chr -> String.mem chr "\r\t\n ")) in
+        choice [ lparenP; rparenP; opP; numP; spaceP ]
+
+      let lex str =
+        match Lexer.many1 lexP str with
+        | Ok (lst, f) -> if SeqTok.null f
+                         then Ok lst
+                         else Error "lexing error"
+        | Error e -> Error e
     end
 
     open StringExample
