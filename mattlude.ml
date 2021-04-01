@@ -337,36 +337,52 @@ module Example = struct
     let is_space = function Space -> true | _ -> false
     let is_num = function Num _ -> true | _ -> false
 
-    module Lexer = StringParserF 
 
-    let lexP =
-      let open Lexer in
-      let lparenP = pure LParen <* satisfy (eq '(') in
-      let rparenP = pure RParen <* satisfy (eq ')') in
-      let opP = 
-        let is_op_chr chr = String.mem chr "+*/-" in
-        let+ op_chr = satisfy is_op_chr
-        in char_to_binop op_chr
-      in
-      let numP =
-        let mk_num str = Num (int_of_string str) in
-        let+ numstring = munch1 (Char.Decimal.is)
-        in mk_num numstring
-      in
-      let spaceP = pure Space <* skip_spaces1 in
-      choice [ lparenP; rparenP; opP; numP; spaceP ]
-                                     
-    let lex str =
-      match Lexer.many1 lexP str with
-      | Ok (lst, "") -> Ok lst
-      | Ok (_, _) -> Error "lexing error"
-      | Error e -> Error e
+    module StringExample = struct
+      module Lexer = StringParserF 
+                    
+      let lexP =
+        let open Lexer in
+        let lparenP = pure LParen <* satisfy (eq '(') in
+        let rparenP = pure RParen <* satisfy (eq ')') in
+        let opP = 
+          let is_op_chr chr = String.mem chr "+*/-" in
+          let+ op_chr = satisfy is_op_chr
+          in char_to_binop op_chr
+        in
+        let numP =
+          let mk_num str = Num (int_of_string str) in
+          let+ numstring = munch1 (Char.Decimal.is)
+          in mk_num numstring
+        in
+        let spaceP = pure Space <* skip_spaces1 in
+        choice [ lparenP; rparenP; opP; numP; spaceP ]
+        
+      let lex str =
+        match Lexer.many1 lexP str with
+        | Ok (lst, "") -> Ok lst
+        | Ok (_, _) -> Error "lexing error"
+        | Error e -> Error e
+    end
+
+    module SeqExample = struct
+      module SeqTok = struct
+          include Seq
+          type tok = char
+          type stream = tok t
+          let null s =
+            match s () with
+            | Seq.Nil -> true
+            | Seq.Cons _ -> false
+        end
+    end
+
+    open StringExample
   end
 
   module Parse = struct
-
-    module ListTok =
-      struct
+  
+    module ListTok = struct
         include List
         type tok = Lex.lexeme
         type stream = tok t
@@ -375,9 +391,8 @@ module Example = struct
           | [] -> true
           | _ -> false
       end
-
-    module SeqTok =
-      struct
+  
+    module SeqTok = struct
         include Seq
         type tok = Lex.lexeme
         type stream = tok t
@@ -394,11 +409,11 @@ module Example = struct
       | Minus of (exp * exp)
       | Times of (exp * exp)
       | Div of (exp * exp)
-
+  
     and exp =
       | Num_exp of num
       | Op_exp of binop
-
+  
     let mk_plus exp1 exp2 = Plus (exp1, exp2) 
     let mk_minus exp1 exp2 = Minus (exp1, exp2)
     let mk_times exp1 exp2 = Times (exp1, exp2)
@@ -407,7 +422,7 @@ module Example = struct
     let mk_opexp o = Op_exp o
                            
     module Parser = ParserF (SeqTok)
-
+  
     let skip_spaces =
       let open Parser in
       optional (satisfy Lex.is_space)
