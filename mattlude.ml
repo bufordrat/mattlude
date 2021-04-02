@@ -203,7 +203,10 @@ module ParserF (T : TOKEN) = struct
       and+ final = prsr
       in let open T in
          append initial (cons final empty)
-                     
+
+    let munch1 pred = many1 (satisfy pred)
+
+    let char chr = satisfy (eq chr)
   end
   include KleisliArrows
 end
@@ -406,6 +409,39 @@ module Example = struct
         | Error e -> Error e
     end
 
+    module EtcPasswd = struct
+
+      module SeqTok = struct
+          include Seq
+          type tok = char
+          type stream = tok t
+          let null s =
+            match s () with
+            | Seq.Nil -> true
+            | Seq.Cons _ -> false
+      end
+
+      module Lexer = ParserF (SeqTok)
+
+      let lexP =
+        let open Lexer in
+        let munch_chars =
+          many1 (satisfy Char.Alphabetic.is)
+        in
+        let munch_space =
+          many1 (satisfy (fun c -> String.mem c "\r\t "))
+        in
+        (sep_by1 munch_chars munch_space) <* satisfy (eq '\n')
+        
+      let lex str =
+        match Lexer.many1 lexP str with
+        | Ok (lst, f) -> if SeqTok.null f
+                         then Ok lst
+                         else Error "lexing error"
+        | Error e -> Error e
+
+    end
+                      
     open StringExample
   end
 
