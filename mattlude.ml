@@ -178,13 +178,19 @@ module ParserF (T : TOKEN) = struct
     let choice prsrs = List.foldl (<|>) fail prsrs
 
     let optional prsr = prsr *> pure () <|> pure ()
-                     
+
+    (* let bool_to_string = function
+     *   | true -> "true!"
+     *   | false -> "false!" *)
+                      
     let satisfy pred = function
       | r when T.null r -> PResult.error "end of file"
-      | toks -> if pred (T.hd toks)
-                then PResult.ok (T.hd toks, T.tl toks)
-                else PResult.error "error: satisfy"
-
+      | toks -> begin
+          if pred (T.hd toks)
+          then PResult.ok (T.hd toks, T.tl toks)
+          else PResult.error "error: satisfy"
+        end
+          
     let eof = function
       | r when r = T.empty -> PResult.ok ((), T.empty)
       | _ -> PResult.error "error: eof"
@@ -305,7 +311,22 @@ module StringParserF = struct
       pure () <* munch1 is_space
 
     let skip_spaces = skip_spaces1 <|> pure ()
-                    
+
+    let chainl op p =
+      let rec apply_all x = function
+        | [] -> x
+        | f :: fs -> apply_all (f x) fs
+      in
+      apply_all <$> p <*> many (flip <$> op <*> p)
+
+    let intP = pure (int_of_string << String.make 1)
+               <*> satisfy Char.Decimal.is
+
+    let plus_minus =
+      chainl
+        (pure (-) <* char '-' <|> pure (+) <* char '+')
+        intP
+      
   end
   include KleisliArrows
 end
@@ -395,10 +416,13 @@ module Example = struct
             int_of_string << String.implode << List.of_seq
           in
           let mk_num lst = Num (seq_to_int lst) in
-          let+ numstring = many1 (satisfy Char.Decimal.is)
-          in mk_num numstring
+          let+ numstring = munch1 Char.Decimal.is in
+          mk_num numstring
         in
-        let spaceP = pure Space <* many1 (satisfy (fun chr -> String.mem chr "\r\t\n ")) in
+        let spaceP =
+          let is_space chr = String.(mem chr whitespace) in
+          pure Space <* munch1 is_space
+        in
         choice [ lparenP; rparenP; opP; numP; spaceP ]
 
       let lex str =
@@ -409,12 +433,16 @@ module Example = struct
         | Error e -> Error e
     end
 
-    module EtcPasswd = struct
+    module Words = struct
 
       module SeqTok = struct
           include Seq
           type tok = char
           type stream = tok t
+          let hd s =
+            match s () with
+            | Seq.Cons (x,_) -> x
+            | Seq.Nil -> assert false
           let null s =
             match s () with
             | Seq.Nil -> true
@@ -425,13 +453,10 @@ module Example = struct
 
       let lexP =
         let open Lexer in
-        let munch_chars =
-          many1 (satisfy Char.Alphabetic.is)
+        let is_space chr =
+          String.mem chr String.whitespace
         in
-        let munch_space =
-          many1 (satisfy (fun c -> String.mem c "\r\t "))
-        in
-        (sep_by1 munch_chars munch_space) <* satisfy (eq '\n')
+        sep_by1 (munch1 Char.Alphabetic.is) (munch1 is_space)
         
       let lex str =
         match Lexer.many1 lexP str with
@@ -440,6 +465,15 @@ module Example = struct
                          else Error "lexing error"
         | Error e -> Error e
 
+      let of_chars chan =
+        let eachchar _ = match input_char chan with
+          | exception End_of_file -> None
+          | char                  -> Some (char, chan)
+        in
+        Seq.unfold eachchar chan
+
+      let play fn f = within (of_chars >> f) fn;;
+        
     end
                       
     open StringExample
