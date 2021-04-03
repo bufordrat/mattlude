@@ -322,6 +322,14 @@ module StringParserF = struct
     let intP = pure (int_of_string << String.make 1)
                <*> satisfy Char.Decimal.is
 
+    let rec sequence = function
+      | [] -> pure []
+      | x :: xs -> let+ p1 = x
+                   and+ p2 = sequence xs
+                   in cons p1 p2
+
+    let pack l r prsr = char l *> prsr <* char r
+    
     let plus_minus =
       chainl
         (pure (-) <* char '-' <|> pure (+) <* char '+')
@@ -471,8 +479,10 @@ module Example = struct
           | char                  -> Some (char, chan)
         in
         Seq.unfold eachchar chan
+      
+      let play fn f = within (of_chars >> f) fn
 
-      let play fn f = within (of_chars >> f) fn;;
+      
         
     end
                       
