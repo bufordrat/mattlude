@@ -319,21 +319,32 @@ module StringParserF = struct
       in
       apply_all <$> p <*> many (flip <$> op <*> p)
 
-    let intP = pure (int_of_string << String.make 1)
-               <*> satisfy Char.Decimal.is
-
     let rec sequence = function
       | [] -> pure []
       | x :: xs -> let+ p1 = x
                    and+ p2 = sequence xs
                    in cons p1 p2
+    
+    let pack l prsr r = string l *> prsr <* string r
+    
+    let op (func, str) = pure func <* string str
 
-    let pack l r prsr = char l *> prsr <* char r
+    let any_op = choice << List.map op
+    
+    let addops = any_op [((+), "+")]
+
+    let mulops = any_op [(( * ), "*")]
+
+    let integer = pure (int_of_string << String.make 1)
+               <*> satisfy Char.Decimal.is
+    
+    let rec expr input = (foldr chainl factor [addops; mulops]) input
+    and factor input = (integer <|> pack "(" expr ")") input
     
     let plus_minus =
       chainl
         (pure (-) <* char '-' <|> pure (+) <* char '+')
-        intP
+        integer
       
   end
   include KleisliArrows
