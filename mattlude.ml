@@ -339,7 +339,7 @@ module StringParserF = struct
                <*> satisfy Char.Decimal.is
     
     let rec expr input = (foldr chainl factor [addops; mulops]) input
-    and factor input = (integer <|> pack "(" expr ")") input
+    and factor input = (integer <|> char '(' *> expr <* char ')') input
     
     let plus_minus =
       chainl
