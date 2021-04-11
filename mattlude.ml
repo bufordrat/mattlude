@@ -178,11 +178,7 @@ module ParserF (T : TOKEN) = struct
     let choice prsrs = List.foldl (<|>) fail prsrs
 
     let optional prsr = prsr *> pure () <|> pure ()
-
-    (* let bool_to_string = function
-     *   | true -> "true!"
-     *   | false -> "false!" *)
-                      
+                     
     let satisfy pred = function
       | r when T.null r -> PResult.error "end of file"
       | toks -> begin
@@ -212,7 +208,16 @@ module ParserF (T : TOKEN) = struct
 
     let munch1 pred = many1 (satisfy pred)
 
-    let char chr = satisfy (eq chr)
+    let token tok = satisfy (eq tok)
+
+    (* let tokens str = 
+     *   let concat_tok strP tok =
+     *     let+ str = strP
+     *     and+ token = token tok in
+     *     T.append str (cons tok T.empty)
+     *   in
+     *   String.foldl concat_char (pure T.empty) str *)
+    
   end
   include KleisliArrows
 end
@@ -312,34 +317,35 @@ module StringParserF = struct
 
     let skip_spaces = skip_spaces1 <|> pure ()
 
-    let chainl op p =
-      let rec apply_all x = function
-        | [] -> x
-        | f :: fs -> apply_all (f x) fs
-      in
-      apply_all <$> p <*> many (flip <$> op <*> p)
-
     let rec sequence = function
       | [] -> pure []
       | x :: xs -> let+ p1 = x
                    and+ p2 = sequence xs
                    in cons p1 p2
     
+    let chainl op p =
+      let rec apply_all x = function
+        | [] -> x
+        | f :: fs -> apply_all (f x) fs
+      in
+      apply_all <$> p <*> many (flip <$> op <*> p)
+   
     let pack l prsr r = string l *> prsr <* string r
     
     let op (func, str) = pure func <* string str
 
-    let any_op = choice << List.map op
-    
-    let addops = any_op [((+), "+")]
+    let any_op input = (choice << List.map op) input
+      
+    let mk_expr atomic ranking left right =
+      let rec expr input = (foldr chainl factor ranking) input
+      and factor input = (atomic <|> pack left expr right) input
+      in (expr, factor)
 
-    let mulops = any_op [(( * ), "*")]
+    (* let rec expr input = (foldr chainl factor ops_ranking) input
+     * and factor input = (integer <|> pack "(" expr ")") input *)
 
-    let integer = pure (int_of_string << String.make 1)
-               <*> satisfy Char.Decimal.is
-    
-    let rec expr input = (foldr chainl factor [addops; mulops]) input
-    and factor input = (integer <|> char '(' *> expr <* char ')') input
+    (* let rec expr input = (foldr chainl factor [addops; mulops]) input
+     * and factor input = (integer <|> pack "(" expr ")") input *)
     
     let plus_minus =
       chainl
@@ -380,8 +386,7 @@ module Example = struct
     let is_space = function Space -> true | _ -> false
     let is_num = function Num _ -> true | _ -> false
 
-
-    module StringExample = struct
+    module LexExample = struct
       module Lexer = StringParserF 
                     
       let lexP =
@@ -493,11 +498,9 @@ module Example = struct
       
       let play fn f = within (of_chars >> f) fn
 
-      
-        
     end
                       
-    open StringExample
+    open LexExample
   end
 
   module Parse = struct
@@ -534,13 +537,45 @@ module Example = struct
       | Num_exp of num
       | Op_exp of binop
   
-    let mk_plus exp1 exp2 = Plus (exp1, exp2) 
+    let mk_plus exp1 exp2 = Plus (exp1, exp2)
     let mk_minus exp1 exp2 = Minus (exp1, exp2)
     let mk_times exp1 exp2 = Times (exp1, exp2)
     let mk_div exp1 exp2 = Div (exp1, exp2)
+
+    let mk_eplus exp1 exp2 = Op_exp (mk_plus exp1 exp2)
+    let mk_eminus exp1 exp2 = Op_exp (mk_minus exp1 exp2)
+    let mk_etimes exp1 exp2 = Op_exp (mk_times exp1 exp2)
+    let mk_ediv exp1 exp2 = Op_exp (mk_div exp1 exp2)
+
     let mk_numexp n = Num_exp n
     let mk_opexp o = Op_exp o
-                           
+
+    module StringExample = struct
+      module Parser = StringParserF
+
+      let skip_spaces = Parser.skip_spaces
+
+      let numP =
+        let open Parser in
+        let mk_num n = Num n
+        in let+ c = satisfy Char.Decimal.is
+           in mk_num @@ (int_of_string << String.make 1) c
+
+      let enumP = Parser.map mk_numexp numP
+      
+      let ops_ranking =
+        List.map Parser.any_op [
+            [(mk_eminus, "-")] ;
+            [(mk_eplus, "+")] ;
+            [(mk_ediv, "/")] ;
+            [(mk_etimes, "*")] ;
+          ]
+      
+      let (expr,_) =
+        Parser.mk_expr enumP ops_ranking "(" ")"
+      
+    end
+    
     module Parser = ParserF (SeqTok)
   
     let skip_spaces =
