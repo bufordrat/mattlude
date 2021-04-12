@@ -133,6 +133,7 @@ module type TOKEN = sig
   include FOLDABLE
   type tok
   type stream = tok t
+  val pop : 'tok t -> 'tok option * 'tok t
   val hd : 'tok t -> 'tok
   val tl : 'tok t -> 'tok t
   val cons : 'tok -> 'tok t -> 'tok t
@@ -175,16 +176,18 @@ module Parser = struct
 
       let optional prsr = prsr *> pure () <|> pure ()
       
-      let satisfy pred = function
-        | r when IS.null r -> PResult.error "end of file"
-        | toks -> begin
-            if pred (IS.hd toks)
-            then PResult.ok (IS.hd toks, IS.tl toks)
+      let satisfy pred input =
+        match IS.pop input with
+        | None, _ -> PResult.error "end of file"
+        | Some x, xs -> begin
+            if pred x
+            then PResult.ok (x, xs)
             else PResult.error "error: satisfy"
           end
       
-      let eof = function
-        | r when r = IS.empty -> PResult.ok ((), IS.empty)
+      let eof input =
+        match IS.pop input with
+        | None, _ -> PResult.ok ((), IS.empty)
         | _ -> PResult.error "error: eof"
 
       let token tok = satisfy (fun x -> x = tok)
@@ -215,9 +218,10 @@ module Parser = struct
         OS.(foldl concat_tok @@ pure empty) toks
       
       let chainl op p =
-        let rec apply_all x = function
-          | s when OS.null s -> x
-          | stream -> apply_all ((OS.hd stream) x) (OS.tl stream)
+        let rec apply_all x lst =
+          match OS.pop lst with
+          | None, _ -> x
+          | Some f, fs -> apply_all (f x) (fs)
         in
         apply_all <$> p <*> many (flip <$> op <*> p)
       
@@ -423,6 +427,9 @@ module Example = struct
             match s () with
             | Seq.Nil -> true
             | Seq.Cons _ -> false
+          let pop s = match s () with
+            | Nil -> None, s
+            | Cons (x, xs) -> Some x, xs
       end
 
       module Lexer = Parser.Make (SeqTok) (SeqTok)
@@ -472,6 +479,9 @@ module Example = struct
             match s () with
             | Seq.Nil -> true
             | Seq.Cons _ -> false
+          let pop s = match s () with
+            | Nil -> None, s
+            | Cons (x, xs) -> Some x, xs
       end
 
       module Lexer = Parser.Make (SeqTok) (SeqTok)
@@ -485,9 +495,11 @@ module Example = struct
         
       let lex str =
         match Lexer.many1 lexP str with
-        | Ok (lst, f) -> if SeqTok.null f
-                         then Ok lst
-                         else Error "lexing error"
+        | Ok (lst, f) -> begin
+            match SeqTok.pop f with
+            | None, _ -> Ok lst
+            | _ -> Error "lexing error"
+            end
         | Error e -> Error e
 
       let of_chars chan =
@@ -505,7 +517,11 @@ module Example = struct
   end
 
   module Parse = struct
-  
+
+    let pop = function
+      | [] -> None, []
+      | x :: xs -> Some x, xs
+    
     module ListTok = struct
         include List
         type tok = Lex.lexeme
@@ -514,6 +530,7 @@ module Example = struct
         let null = function
           | [] -> true
           | _ -> false
+        let pop = pop
       end
   
     module SeqTok = struct
