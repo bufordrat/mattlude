@@ -324,7 +324,7 @@ module StringParserF = struct
 
     let skip_spaces1 =
       let is_space chr =
-        String.mem chr "\r\n\t "
+        String.(mem chr whitespace)
       in
       pure () <* munch1 is_space
 
@@ -352,19 +352,7 @@ module StringParserF = struct
     let mk_expr atomic ranking left right =
       let rec expr input = (foldr chainl factor ranking) input
       and factor input = (atomic <|> pack left expr right) input
-      in (expr, factor)
-
-    (* let rec expr input = (foldr chainl factor ops_ranking) input
-     * and factor input = (integer <|> pack "(" expr ")") input *)
-
-    (* let rec expr input = (foldr chainl factor [addops; mulops]) input
-     * and factor input = (integer <|> pack "(" expr ")") input *)
-    
-    (* let plus_minus =
-     *   chainl
-     *     (pure (-) <* char '-' <|> pure (+) <* char '+')
-     *     integer *)
-      
+      in (expr, factor)      
   end
   include Combinators
 end
