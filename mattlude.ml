@@ -137,12 +137,12 @@ module type TOKEN = sig
   val cons : 'tok -> 'tok t -> 'tok t
 end
 
-module ParserF (T : TOKEN) = struct
+module ParserF (OS: TOKEN) (IS : TOKEN) = struct
   module PResult = ResultF (String)
 
   module ParserMonad = struct
     type 'output t =
-      T.stream -> (('output * T.stream), string) result
+      IS.stream -> (('output * IS.stream), string) result
     let pure x = fun stream -> PResult.ok (x, stream)
     let bind prsr k = let open PResult in 
                       fun input ->
@@ -180,44 +180,63 @@ module ParserF (T : TOKEN) = struct
     let optional prsr = prsr *> pure () <|> pure ()
                      
     let satisfy pred = function
-      | r when T.null r -> PResult.error "end of file"
+      | r when IS.null r -> PResult.error "end of file"
       | toks -> begin
-          if pred (T.hd toks)
-          then PResult.ok (T.hd toks, T.tl toks)
+          if pred (IS.hd toks)
+          then PResult.ok (IS.hd toks, IS.tl toks)
           else PResult.error "error: satisfy"
         end
           
     let eof = function
-      | r when r = T.empty -> PResult.ok ((), T.empty)
+      | r when r = IS.empty -> PResult.ok ((), IS.empty)
       | _ -> PResult.error "error: eof"
 
     let token tok = satisfy (fun x -> x = tok)
 
     let rec many prsr input =
       match prsr input with
-      | Ok _ -> (pure T.cons <*> prsr <*> many prsr) input
-      | Error _ -> (pure T.empty) input
+      | Ok _ -> (pure OS.cons <*> prsr <*> many prsr) input
+      | Error _ -> (pure OS.empty) input
 
-    let many1 prsr = pure T.cons <*> prsr <*> many prsr
+    let many1 prsr = pure OS.cons <*> prsr <*> many prsr
 
     let sep_by1 prsr sepPrsr =
       let+ initial = many (prsr <* sepPrsr)
       and+ final = prsr
-      in let open T in
-         append initial (cons final empty)
+      in
+      OS.(append initial @@ cons final empty)
 
     let munch1 pred = many1 (satisfy pred)
 
     let token tok = satisfy (eq tok)
 
-    (* let tokens str = 
-     *   let concat_tok strP tok =
-     *     let+ str = strP
-     *     and+ token = token tok in
-     *     T.append str (cons tok T.empty)
-     *   in
-     *   String.foldl concat_char (pure T.empty) str *)
+    let tokens toks = 
+      let concat_tok toksP tok =
+        let+ toks = toksP
+        and+ token = token tok in
+        OS.(append toks @@ cons token empty)
+      in
+      OS.(foldl concat_tok @@ pure empty) toks
     
+    let chainl op p =
+      let rec apply_all x = function
+        | s when OS.null s -> x
+        | stream -> apply_all ((OS.hd stream) x) (OS.tl stream)
+      in
+      apply_all <$> p <*> many (flip <$> op <*> p)
+   
+    let pack l prsr r = tokens l *> prsr <* tokens r
+    
+    let op (func, toks) = pure func <* tokens toks
+
+    let any_op input = (choice << List.map op) input
+      
+    let mk_expr atomic ranking left right =
+      let rec expr input = (foldr chainl factor ranking) input
+      and factor input = (atomic <|> pack left expr right) input
+      in (expr, factor)
+
+
   end
   include KleisliArrows
 end
@@ -347,10 +366,10 @@ module StringParserF = struct
     (* let rec expr input = (foldr chainl factor [addops; mulops]) input
      * and factor input = (integer <|> pack "(" expr ")") input *)
     
-    let plus_minus =
-      chainl
-        (pure (-) <* char '-' <|> pure (+) <* char '+')
-        integer
+    (* let plus_minus =
+     *   chainl
+     *     (pure (-) <* char '-' <|> pure (+) <* char '+')
+     *     integer *)
       
   end
   include KleisliArrows
@@ -424,7 +443,7 @@ module Example = struct
             | Seq.Cons _ -> false
       end
 
-      module Lexer = ParserF (SeqTok)
+      module Lexer = ParserF (SeqTok) (SeqTok)
 
       let lexP =
         let open Lexer in
@@ -473,7 +492,7 @@ module Example = struct
             | Seq.Cons _ -> false
       end
 
-      module Lexer = ParserF (SeqTok)
+      module Lexer = ParserF (SeqTok) (SeqTok)
 
       let lexP =
         let open Lexer in
@@ -576,7 +595,7 @@ module Example = struct
       
     end
     
-    module Parser = ParserF (SeqTok)
+    module Parser = ParserF (SeqTok) (SeqTok)
   
     let skip_spaces =
       let open Parser in
