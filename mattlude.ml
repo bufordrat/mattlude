@@ -8,7 +8,7 @@
 open Prelude
 
 (** [version] is the library version metadata alist. *)
-(* let version = V.data *)
+let version = V.data
 
 module type FUNCTOR = sig
   type 'a t
@@ -95,25 +95,26 @@ module Option = struct
 
   include Monad2App (OptionMonad)
 end
-let cat_options = Option.cat_options
 
 module type ERROR = sig
   type t
 end
                 
-(* module functor for building a Result module with cool extra stuff in it;
-   takes a module containing the error type as an input *)
-module ResultF (E : ERROR) = struct
-  include Result
-
-  (* for auto-generating monad and applicative stuff *)
-  module ResultMonad = struct
-    type 'a t = ('a, E.t) result
-    let pure = Result.ok
-    let bind = Result.(>>=)
+module Result = struct
+  (* module functor for building a Result module with cool extra stuff in it;
+   takes a module containing the error type as an input *) 
+  module Make (E : ERROR) = struct
+    include Result
+    
+    (* for auto-generating monad and applicative stuff *)
+    module ResultMonad = struct
+      type 'a t = ('a, E.t) result
+      let pure = Result.ok
+      let bind = Result.(>>=)
+    end
+    
+    include Monad2App (ResultMonad)
   end
-
-  include Monad2App (ResultMonad)
 end
 
 module type MONOID = sig
@@ -137,8 +138,10 @@ module type TOKEN = sig
   val cons : 'tok -> 'tok t -> 'tok t
 end
 
+(* IS short for 'input stream'
+ * OS short for 'output stream' *)
 module ParserF (OS: TOKEN) (IS : TOKEN) = struct
-  module PResult = ResultF (String)
+  module PResult = Result.Make (String)
 
   module ParserMonad = struct
     type 'output t =
@@ -150,27 +153,18 @@ module ParserF (OS: TOKEN) (IS : TOKEN) = struct
                       (k result1) remainder1
   end
   include Monad2App (ParserMonad)
-
-  let alternative prsr1 prsr2 input =
-    let is_ok = function
-      | Ok _ -> true
-      | _ -> false
-    in
-    if is_ok (prsr1 input)
-    then prsr1 input
-    else prsr2 input
-        
-  let alternative prsr1 prsr2 input =
-    match prsr1 input with
-    | Error _ -> prsr2 input
-    | _ -> prsr1 input
-         
-  let (<|>) = alternative
-
+       
   let run_parser prsr input = prsr input
             
-  module KleisliArrows = struct
+  module Combinators = struct
 
+    let alternative prsr1 prsr2 input =
+      match prsr1 input with
+      | Error _ -> prsr2 input
+      | _ -> prsr1 input
+    
+    let (<|>) = alternative
+    
     let succeed input = PResult.ok input
 
     let fail _ = PResult.error "error: pfail"
@@ -224,26 +218,24 @@ module ParserF (OS: TOKEN) (IS : TOKEN) = struct
         | stream -> apply_all ((OS.hd stream) x) (OS.tl stream)
       in
       apply_all <$> p <*> many (flip <$> op <*> p)
-   
-    let pack l prsr r = tokens l *> prsr <* tokens r
-    
-    let op (func, toks) = pure func <* tokens toks
+     
+    let any_op input =
+      let op (func, toks) = pure func <* tokens toks in
+      (choice << List.map op) input
 
-    let any_op input = (choice << List.map op) input
-      
     let mk_expr atomic ranking left right =
+      let pack l prsr r = tokens l *> prsr <* tokens r in
       let rec expr input = (foldr chainl factor ranking) input
       and factor input = (atomic <|> pack left expr right) input
       in (expr, factor)
 
-
   end
-  include KleisliArrows
+  include Combinators
 end
 
 
 module StringParserF = struct
-  module PResult = ResultF (String)
+  module PResult = Result.Make (String)
 
   module ParserMonad = struct
     type 'output t =
@@ -262,7 +254,7 @@ module StringParserF = struct
     | _ -> prsr1 input
   let (<|>) = alternative
             
-  module KleisliArrows = struct
+  module Combinators = struct
 
     let succeed input = PResult.ok input
 
@@ -372,7 +364,7 @@ module StringParserF = struct
      *     integer *)
       
   end
-  include KleisliArrows
+  include Combinators
 end
 
                      
