@@ -8,7 +8,7 @@
 open Prelude
 
 (** [version] is the library version metadata alist. *)
-let version = V.data
+(* let version = V.data *)
 
 module type FUNCTOR = sig
   type 'a t
@@ -554,6 +554,14 @@ module Example = struct
     module StringExample = struct
       module Parser = StringParserF
 
+      let ops_ranking =
+        List.map Parser.any_op [
+            [(mk_eminus, "-")] ;
+            [(mk_eplus, "+")] ;
+            [(mk_ediv, "/")] ;
+            [(mk_etimes, "*")] ;
+          ]
+      
       let skip_spaces = Parser.skip_spaces
 
       let numP =
@@ -563,63 +571,68 @@ module Example = struct
            in mk_num @@ (int_of_string << String.make 1) c
 
       let enumP = Parser.map mk_numexp numP
-      
-      let ops_ranking =
-        List.map Parser.any_op [
-            [(mk_eminus, "-")] ;
-            [(mk_eplus, "+")] ;
-            [(mk_ediv, "/")] ;
-            [(mk_etimes, "*")] ;
-          ]
-      
+           
       let (expr,_) =
         Parser.mk_expr enumP ops_ranking "(" ")"
       
     end
     
-    module P = Parser.Make (SeqTok) (SeqTok)
-  
+    module P = Parser.Make (ListTok) (ListTok)
+
+    let ops_ranking =
+      List.map P.any_op [
+          [(mk_eminus, [Lex.Minus])] ;
+          [(mk_eplus, [Lex.Plus])] ;
+          [(mk_ediv, [Lex.Div])] ;
+          [(mk_etimes, [Lex.Times])] ;
+        ]
+    
     let skip_spaces =
       let open P in
       optional (satisfy Lex.is_space)
                   
-    let numP =
+    let enumP =
       let open P in
       let mk_num = function
-        | Lex.Num n -> Num n
+        | Lex.Num n -> Num_exp (Num n)
         | _ -> assert false
       in
       let+ lexeme = satisfy Lex.is_num
       in mk_num lexeme
-       
-    let rec binopP input =
+
+    let (expP,_) =
       let open P in
       let open Lex in
-      let op prsr pred =
-          pure prsr
-          <* (satisfy is_lparen)
-          <* skip_spaces
-          <*> expP
-          <* skip_spaces
-          <* (satisfy pred)
-          <* skip_spaces
-          <*> expP
-          <* skip_spaces
-          <* (satisfy is_rparen)
-      in
-      choice [
-          op mk_plus is_plus ;
-          op mk_minus is_minus ;
-          op mk_times is_times ;
-          op mk_div is_div ;
-        ] @@ input
-      
-    and expP input =
-      let open P in
-      choice [
-          pure mk_numexp <*> numP ;
-          pure mk_opexp <*> binopP ;
-        ] @@ input
+      mk_expr enumP ops_ranking [LParen] [RParen]
+    
+    (* let rec binopP input =
+     *   let open P in
+     *   let open Lex in
+     *   let op prsr pred =
+     *       pure prsr
+     *       <* (satisfy is_lparen)
+     *       <* skip_spaces
+     *       <*> expP
+     *       <* skip_spaces
+     *       <* (satisfy pred)
+     *       <* skip_spaces
+     *       <*> expP
+     *       <* skip_spaces
+     *       <* (satisfy is_rparen)
+     *   in
+     *   choice [
+     *       op mk_plus is_plus ;
+     *       op mk_minus is_minus ;
+     *       op mk_times is_times ;
+     *       op mk_div is_div ;
+     *     ] @@ input
+     *   
+     * and expP input =
+     *   let open P in
+     *   choice [
+     *       pure mk_numexp <*> numP ;
+     *       pure mk_opexp <*> binopP ;
+     *     ] @@ input *)
   end
 end
 
