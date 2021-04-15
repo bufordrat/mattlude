@@ -133,10 +133,8 @@ module type TOKEN = sig
   include FOLDABLE
   type tok
   type stream = tok t
-  val pop : 'tok t -> 'tok option * 'tok t
-  val hd : 'tok t -> 'tok
-  val tl : 'tok t -> 'tok t
-  val cons : 'tok -> 'tok t -> 'tok t
+  val pop : 'a t -> 'a option * 'a t
+  val cons : 'a -> 'a t -> 'a t
 end
 
 
@@ -182,15 +180,13 @@ module Parser = struct
         | Some x, xs -> begin
             if pred x
             then PResult.ok (x, xs)
-            else PResult.error "error: satisfy"
+            else fail (IS.cons x xs)
           end
       
       let eof input =
         match IS.pop input with
         | None, _ -> PResult.ok ((), IS.empty)
-        | _ -> PResult.error "error: eof"
-
-      let token tok = satisfy (fun x -> x = tok)
+        | Some x, xs -> fail (IS.cons x xs)
 
       let rec many prsr input =
         match prsr input with
@@ -216,7 +212,7 @@ module Parser = struct
           OS.(append toks @@ cons token empty)
         in
         OS.(foldl concat_tok @@ pure empty) toks
-      
+
       let chainl op p =
         let rec apply_all x lst =
           match OS.pop lst with
@@ -228,7 +224,7 @@ module Parser = struct
       let any_op input =
         let op (func, toks) = pure func <* tokens toks in
         (choice << List.map op) input
-
+      
       let mk_expr atomic ranking left right =
         let pack l prsr r = tokens l *> prsr <* tokens r in
         let rec expr input = (foldr chainl factor ranking) input
@@ -375,6 +371,16 @@ module Example = struct
       | Num of int
       | Space
 
+    let to_string = function
+      | LParen -> "("
+      | RParen -> ")"
+      | Plus -> "+"
+      | Minus -> "-"
+      | Times -> "*"
+      | Div -> "/"
+      | Num n -> sprintf "%i" n
+      | Space -> " "
+    
     let char_to_binop = function
       | '+' -> Plus
       | '-' -> Minus
@@ -427,9 +433,7 @@ module Example = struct
             match s () with
             | Seq.Nil -> true
             | Seq.Cons _ -> false
-          let pop s = match s () with
-            | Nil -> None, s
-            | Cons (x, xs) -> Some x, xs
+          let pop _ = assert false
       end
 
       module Lexer = Parser.Make (SeqTok) (SeqTok)
@@ -459,14 +463,31 @@ module Example = struct
 
       let lex str =
         match Lexer.many1 lexP str with
-        | Ok (lst, f) -> if SeqTok.null f
-                         then Ok lst
-                         else Error "lexing error"
+        | Ok (lst, f) -> begin
+            match SeqTok.pop f with
+            | None, _ -> Ok lst
+            | _ -> Error "lexing error"
+          end
         | Error e -> Error e
+
     end
 
     module Words = struct
 
+      module ListTok = struct
+        include List
+        type tok = char
+        type stream = tok t
+        let empty = []
+        let null = function
+          | [] -> true
+          | _ -> false
+        let pop = function
+          | [] -> None, []
+          | x :: xs -> Some x, xs
+      end
+
+      
       module SeqTok = struct
           include Seq
           type tok = char
@@ -481,10 +502,12 @@ module Example = struct
             | Seq.Cons _ -> false
           let pop s = match s () with
             | Nil -> None, s
-            | Cons (x, xs) -> Some x, xs
+            | Cons (x, xs) -> begin
+                (Some x, xs)
+              end
       end
 
-      module Lexer = Parser.Make (SeqTok) (SeqTok)
+      module Lexer = Parser.Make (ListTok) (SeqTok)
 
       let lexP =
         let open Lexer in
@@ -596,31 +619,31 @@ module Example = struct
     
     module P = Parser.Make (ListTok) (ListTok)
 
-    let ops_ranking =
-      List.map P.any_op [
-          [(mk_eminus, [Lex.Minus])] ;
-          [(mk_eplus, [Lex.Plus])] ;
-          [(mk_ediv, [Lex.Div])] ;
-          [(mk_etimes, [Lex.Times])] ;
-        ]
+    (* let ops_ranking =
+     *   List.map P.any_op [
+     *       [(mk_eminus, [Lex.Minus])] ;
+     *       [(mk_eplus, [Lex.Plus])] ;
+     *       [(mk_ediv, [Lex.Div])] ;
+     *       [(mk_etimes, [Lex.Times])] ;
+     *     ] *)
     
-    let skip_spaces =
-      let open P in
-      optional (satisfy Lex.is_space)
-                  
-    let enumP =
-      let open P in
-      let mk_num = function
-        | Lex.Num n -> Num_exp (Num n)
-        | _ -> assert false
-      in
-      let+ lexeme = satisfy Lex.is_num
-      in mk_num lexeme
-
-    let (expP,_) =
-      let open P in
-      let open Lex in
-      mk_expr enumP ops_ranking [LParen] [RParen]
+    (* let skip_spaces =
+     *   let open P in
+     *   optional (satisfy Lex.is_space)
+     *               
+     * let enumP =
+     *   let open P in
+     *   let mk_num = function
+     *     | Lex.Num n -> Num_exp (Num n)
+     *     | _ -> assert false
+     *   in
+     *   let+ lexeme = satisfy Lex.is_num
+     *   in mk_num lexeme
+     * 
+     * let (expP,_) =
+     *   let open P in
+     *   let open Lex in
+     *   mk_expr enumP ops_ranking [LParen] [RParen] *)
     
     (* let rec binopP input =
      *   let open P in
