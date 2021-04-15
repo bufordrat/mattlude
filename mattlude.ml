@@ -99,7 +99,7 @@ end
 module type ERROR = sig
   type t
 end
-                
+
 module Result = struct
   (* module functor for building a Result module with cool extra stuff
      in it; takes a module containing the error type as an input *) 
@@ -136,7 +136,6 @@ module type TOKEN = sig
   val pop : 'a t -> 'a option * 'a t
   val cons : 'a -> 'a t -> 'a t
 end
-
 
 module Parser = struct
   (* IS short for 'input stream'
@@ -214,8 +213,8 @@ module Parser = struct
         OS.(foldl concat_tok @@ pure empty) toks
 
       let chainl op p =
-        let rec apply_all x lst =
-          match OS.pop lst with
+        let rec apply_all x stream =
+          match OS.pop stream with
           | None, _ -> x
           | Some f, fs -> apply_all (f x) (fs)
         in
