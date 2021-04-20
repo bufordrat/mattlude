@@ -80,7 +80,8 @@ end
 module Option = struct
 
   (* unwraps the Somes; throws the None-s out *)
-  include Option
+  include Stdlib.Option
+  include Prelude.Option
   let rec cat_options = function
     | [] -> []
     | Some x :: xs -> x :: cat_options xs
@@ -104,7 +105,8 @@ module Result = struct
   (* module functor for building a Result module with cool extra stuff
      in it; takes a module containing the error type as an input *) 
   module Make (E : ERROR) = struct
-    include Result
+    include Stdlib.Result
+    include Prelude.Result
     
     (* for auto-generating monad and applicative stuff *)
     module ResultMonad = struct
@@ -135,13 +137,22 @@ module type TOKEN = sig
   type stream = tok t
   val pop : 'a t -> 'a option * 'a t
   val cons : 'a -> 'a t -> 'a t
+  val re_append : 'a t -> 'a t -> 'a t
 end
 
 module Parser = struct
   (* IS short for 'input stream'
    * OS short for 'output stream' *)
+
   module Make (OS: TOKEN) (IS : TOKEN) = struct
+
     module PResult = Result.Make (String)
+
+    module ParseResult = struct
+      type ('a, 'b) t = { result : ('a, 'b) PResult.t ;
+                          consumed : IS.tok IS.t
+                        }
+    end
 
     module ParserMonad = struct
       type 'output t =
@@ -433,6 +444,7 @@ module Example = struct
             | Seq.Nil -> true
             | Seq.Cons _ -> false
           let pop _ = assert false
+          let re_append = append
       end
 
       module Lexer = Parser.Make (SeqTok) (SeqTok)
@@ -484,6 +496,7 @@ module Example = struct
         let pop = function
           | [] -> None, []
           | x :: xs -> Some x, xs
+        let re_append = append
       end
 
       
@@ -504,6 +517,7 @@ module Example = struct
             | Cons (x, xs) -> begin
                 (Some x, xs)
               end
+          let re_append = append
       end
 
       module Lexer = Parser.Make (ListTok) (SeqTok)
@@ -553,6 +567,7 @@ module Example = struct
           | [] -> true
           | _ -> false
         let pop = pop
+        let re_append = append
       end
   
     module SeqTok = struct
