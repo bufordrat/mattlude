@@ -138,6 +138,7 @@ module type TOKEN = sig
   val pop : 'a t -> 'a option * 'a t
   val cons : 'a -> 'a t -> 'a t
   val re_append : 'a t -> 'a t -> 'a t
+  val rev: 'a t -> 'a t
 end
 
 module Parser = struct
