@@ -153,7 +153,8 @@ module FreeExample = struct
       | Message (msg, next) -> Message (msg, f next)
       | Quit next -> Quit (f next)
   end
-  include Free.Make (Program)
+  module FProg = Free.Make (Program)
+  open FProg
 
   let greeting = lift @@ Greeting ()
   let prompt = lift @@ Prompt id
@@ -181,9 +182,8 @@ module FreeExample = struct
                 print "This is where it would greet you" ;
                 dry_run next
              | Join (Prompt cont) ->
-                let input = "dummy value" in
                 print "This is where you would type something in" ;
-                cont input |> dry_run
+                cont "dummy value" |> dry_run
              | Join (Message (_, next)) ->
                 print "This is where it would repeat back to you what \
                        you typed" ;
