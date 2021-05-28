@@ -161,34 +161,32 @@ module FreeExample = struct
   let message m = lift @@ Message (m, ())
   let quit = lift @@ Quit ()
 
-  let rec run =
-    let open Program in 
-    function | Pure next -> next
-             | Join (Greeting next) ->
-                print "Wzup; please type something" ;
-                run next
-             | Join (Prompt cont) ->
-                let input = input_line stdin in
-                cont input |> run
-             | Join (Message (msg, next)) ->
-                printf "You just typed %s!\n" msg ;
-                run next
-             | Join Quit _ -> ()
+  let rec run = function
+    | Pure next -> next
+    | Join (Greeting next) ->
+       print "Wzup; please type something" ;
+       run next
+    | Join (Prompt cont) ->
+       let input = input_line stdin in
+       cont input |> run
+    | Join (Message (msg, next)) ->
+       printf "You just typed %s!\n" msg ;
+       run next
+    | Join Quit _ -> ()
 
-  let rec dry_run =
-    let open Program in 
-    function | Pure next -> next
-             | Join (Greeting next) ->
-                print "This is where it would greet you" ;
-                dry_run next
-             | Join (Prompt cont) ->
-                print "This is where you would type something in" ;
-                cont "dummy value" |> dry_run
-             | Join (Message (_, next)) ->
-                print "This is where it would repeat back to you what \
-                       you typed" ;
-                dry_run next
-             | Join Quit _ -> ()
+  let rec dry_run = function
+    | Pure next -> next
+    | Join (Greeting next) ->
+       print "This is where it would greet you" ;
+       dry_run next
+    | Join (Prompt cont) ->
+       print "This is where you would type something in" ;
+       cont "dummy value" |> dry_run
+    | Join (Message (_, next)) ->
+       print "This is where it would repeat back to you what \
+              you typed" ;
+       dry_run next
+    | Join Quit _ -> ()
   
   let cool_program =
     let* () = greeting in
