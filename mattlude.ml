@@ -119,6 +119,84 @@ module Result = struct
   end
 end
 
+module Free = struct
+  module Make (F : FUNCTOR) = struct
+    module FreeMonad = struct
+      type 'a t =
+        | Pure of 'a
+        | Join of ('a t) F.t
+      
+      let pure x = Pure x
+      
+      let rec bind mx k = match mx with
+        | Pure x -> k x
+        | Join rest -> Join (F.map (flip bind @@ k) rest)
+      
+      let lift cmd = Join (F.map pure cmd)
+    end
+    include FreeMonad
+    include Monad2App (FreeMonad)
+  end
+end
+
+module FreeExample = struct
+  module Program = struct
+    type 'next t =
+      | Greeting of 'next
+      | Prompt of (string -> 'next)
+      | Message of string * 'next
+      | Quit of 'next
+
+    let map f = function
+      | Greeting next -> Greeting (f next)
+      | Prompt cont -> Prompt (fun x -> cont x |> f)
+      | Message (msg, next) -> Message (msg, f next)
+      | Quit next -> Quit (f next)
+  end
+  include Free.Make (Program)
+
+  let greeting = lift @@ Greeting ()
+  let prompt = lift @@ Prompt id
+  let message m = lift @@ Message (m, ())
+  let quit = lift @@ Quit ()
+
+  let rec run =
+    let open Program in 
+    function | Pure next -> next
+             | Join (Greeting next) ->
+                print "Wzup; please type something" ;
+                run next
+             | Join (Prompt cont) ->
+                let input = input_line stdin in
+                cont input |> run
+             | Join (Message (msg, next)) ->
+                printf "You just typed %s!\n" msg ;
+                run next
+             | Join Quit _ -> ()
+
+  let rec dry_run =
+    let open Program in 
+    function | Pure next -> next
+             | Join (Greeting next) ->
+                print "This is where it would greet you" ;
+                dry_run next
+             | Join (Prompt cont) ->
+                let input = "dummy value" in
+                print "This is where you would type something in" ;
+                cont input |> dry_run
+             | Join (Message (_, next)) ->
+                print "This is where it would repeat back to you what \
+                       you typed" ;
+                dry_run next
+             | Join Quit _ -> ()
+  
+  let cool_program =
+    let* () = greeting in
+    let* input = prompt in
+    let* () = message input in
+    quit
+end
+
 module type MONOID = sig
   type 'a t
   val empty : 'a t
@@ -448,39 +526,39 @@ module Example = struct
           let re_append = append
       end
 
-      module Lexer = Parser.Make (SeqTok) (SeqTok)
+      (* module Lexer = Parser.Make (SeqTok) (SeqTok) *)
 
-      let lexP =
-        let open Lexer in
-        let lparenP = pure LParen <* satisfy (eq '(') in
-        let rparenP = pure RParen <* satisfy (eq ')') in
-        let opP = 
-          let is_op_chr chr = String.mem chr "+*/-" in
-          let+ op_chr = satisfy is_op_chr
-          in char_to_binop op_chr
-        in
-        let numP =
-          let seq_to_int =
-            int_of_string << String.implode << List.of_seq
-          in
-          let mk_num lst = Num (seq_to_int lst) in
-          let+ numstring = munch1 Char.Decimal.is in
-          mk_num numstring
-        in
-        let spaceP =
-          let is_space chr = String.(mem chr whitespace) in
-          pure Space <* munch1 is_space
-        in
-        choice [ lparenP; rparenP; opP; numP; spaceP ]
-
-      let lex str =
-        match Lexer.many1 lexP str with
-        | Ok (lst, f) -> begin
-            match SeqTok.pop f with
-            | None, _ -> Ok lst
-            | _ -> Error "lexing error"
-          end
-        | Error e -> Error e
+      (* let lexP =
+       *   let open Lexer in
+       *   let lparenP = pure LParen <* satisfy (eq '(') in
+       *   let rparenP = pure RParen <* satisfy (eq ')') in
+       *   let opP = 
+       *     let is_op_chr chr = String.mem chr "+*/-" in
+       *     let+ op_chr = satisfy is_op_chr
+       *     in char_to_binop op_chr
+       *   in
+       *   let numP =
+       *     let seq_to_int =
+       *       int_of_string << String.implode << List.of_seq
+       *     in
+       *     let mk_num lst = Num (seq_to_int lst) in
+       *     let+ numstring = munch1 Char.Decimal.is in
+       *     mk_num numstring
+       *   in
+       *   let spaceP =
+       *     let is_space chr = String.(mem chr whitespace) in
+       *     pure Space <* munch1 is_space
+       *   in
+       *   choice [ lparenP; rparenP; opP; numP; spaceP ]
+       * 
+       * let lex str =
+       *   match Lexer.many1 lexP str with
+       *   | Ok (lst, f) -> begin
+       *       match SeqTok.pop f with
+       *       | None, _ -> Ok lst
+       *       | _ -> Error "lexing error"
+       *     end
+       *   | Error e -> Error e *)
 
     end
 
@@ -521,32 +599,32 @@ module Example = struct
           let re_append = append
       end
 
-      module Lexer = Parser.Make (ListTok) (SeqTok)
-
-      let lexP =
-        let open Lexer in
-        let is_space chr =
-          String.mem chr String.whitespace
-        in
-        sep_by1 (munch1 Char.Alphabetic.is) (munch1 is_space)
-        
-      let lex str =
-        match Lexer.many1 lexP str with
-        | Ok (lst, f) -> begin
-            match SeqTok.pop f with
-            | None, _ -> Ok lst
-            | _ -> Error "lexing error"
-            end
-        | Error e -> Error e
-
-      let of_chars chan =
-        let eachchar _ = match input_char chan with
-          | exception End_of_file -> None
-          | char                  -> Some (char, chan)
-        in
-        Seq.unfold eachchar chan
-      
-      let play fn f = within (of_chars >> f) fn
+      (* module Lexer = Parser.Make (ListTok) (SeqTok)
+       * 
+       * let lexP =
+       *   let open Lexer in
+       *   let is_space chr =
+       *     String.mem chr String.whitespace
+       *   in
+       *   sep_by1 (munch1 Char.Alphabetic.is) (munch1 is_space)
+       *   
+       * let lex str =
+       *   match Lexer.many1 lexP str with
+       *   | Ok (lst, f) -> begin
+       *       match SeqTok.pop f with
+       *       | None, _ -> Ok lst
+       *       | _ -> Error "lexing error"
+       *       end
+       *   | Error e -> Error e
+       * 
+       * let of_chars chan =
+       *   let eachchar _ = match input_char chan with
+       *     | exception End_of_file -> None
+       *     | char                  -> Some (char, chan)
+       *   in
+       *   Seq.unfold eachchar chan
+       * 
+       * let play fn f = within (of_chars >> f) fn *)
 
     end
                       
@@ -690,9 +768,6 @@ module Example = struct
      *     ] @@ input *)
   end
 end
-
-
-
 
                 
 
