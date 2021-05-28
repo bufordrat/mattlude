@@ -163,26 +163,26 @@ module FreeExample = struct
 
   let rec run = function
     | Pure next -> next
-    | Join (Greeting next) ->
+    | Join Greeting next ->
        print "Wzup; please type something" ;
        run next
-    | Join (Prompt cont) ->
+    | Join Prompt cont ->
        let input = input_line stdin in
        cont input |> run
-    | Join (Message (msg, next)) ->
+    | Join Message (msg, next) ->
        printf "You just typed %s!\n" msg ;
        run next
     | Join Quit _ -> ()
 
   let rec dry_run = function
     | Pure next -> next
-    | Join (Greeting next) ->
+    | Join Greeting next ->
        print "This is where it would greet you" ;
        dry_run next
-    | Join (Prompt cont) ->
+    | Join Prompt cont ->
        print "This is where you would type something in" ;
        cont "dummy value" |> dry_run
-    | Join (Message (_, next)) ->
+    | Join Message (_, next) ->
        print "This is where it would repeat back to you what \
               you typed" ;
        dry_run next
