@@ -146,12 +146,14 @@ module FreeExample = struct
       | Prompt of (string -> 'next)
       | Message of string * 'next
       | Quit of 'next
+      | Loop of ('next t)
 
-    let map f = function
+    let rec map f = function
       | Greeting next -> Greeting (f next)
       | Prompt cont -> Prompt (fun x -> cont x |> f)
       | Message (msg, next) -> Message (msg, f next)
       | Quit next -> Quit (f next)
+      | Loop prog -> Loop (map f prog)
   end
   module FProg = Free.Make (Program)
   open FProg
@@ -160,6 +162,7 @@ module FreeExample = struct
   let prompt = lift @@ Prompt id
   let message m = lift @@ Message (m, ())
   let quit = lift @@ Quit ()
+  let loop prog = lift @@ Loop prog
 
   let rec run = function
     | Pure next -> next
@@ -173,6 +176,10 @@ module FreeExample = struct
        printf "You just typed %s!\n" msg ;
        run next
     | Join Quit _ -> ()
+    | Join Loop (prog) ->
+       run prog ;
+       run (Loop prog)
+
 
   let rec dry_run = function
     | Pure next -> next
