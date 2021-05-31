@@ -146,14 +146,14 @@ module FreeExample = struct
       | Prompt of (string -> 'next)
       | Message of string * 'next
       | Quit of 'next
-      | Loop of ('next t)
+      | Loop of 'next
 
     let rec map f = function
       | Greeting next -> Greeting (f next)
       | Prompt cont -> Prompt (fun x -> cont x |> f)
       | Message (msg, next) -> Message (msg, f next)
       | Quit next -> Quit (f next)
-      | Loop prog -> Loop (map f prog)
+      | Loop prog -> Loop (f prog)
   end
   module FProg = Free.Make (Program)
   open FProg
@@ -176,9 +176,9 @@ module FreeExample = struct
        printf "You just typed %s!\n" msg ;
        run next
     | Join Quit _ -> ()
-    | Join Loop (prog) ->
+    | Join Loop prog ->
        run prog ;
-       run (Loop prog)
+       run (Join (Loop prog))
 
 
   let rec dry_run = function
@@ -194,6 +194,11 @@ module FreeExample = struct
               you typed" ;
        dry_run next
     | Join Quit _ -> ()
+    | Join Loop prog ->
+       dry_run prog ;
+       print "This is where it would repeat the above step in an \
+              infinite loop" 
+  
   
   let cool_program =
     let* () = greeting in
