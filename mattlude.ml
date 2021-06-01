@@ -148,7 +148,7 @@ module FreeExample = struct
       | Quit of 'next
       | Loop of 'next
 
-    let rec map f = function
+    let map f = function
       | Greeting next -> Greeting (f next)
       | Prompt cont -> Prompt (fun x -> cont x |> f)
       | Message (msg, next) -> Message (msg, f next)
@@ -162,20 +162,22 @@ module FreeExample = struct
   let prompt = lift @@ Prompt id
   let message m = lift @@ Message (m, ())
   let quit = lift @@ Quit ()
-  let loop prog = lift @@ Loop prog
+  let loop prog = Join (Loop prog)
 
   let rec run = function
     | Pure next -> next
     | Join Greeting next ->
-       print "Wzup; please type something" ;
+       print "Wzup!  Type 'q' to quit." ;
        run next
     | Join Prompt cont ->
        let input = input_line stdin in
        cont input |> run
     | Join Message (msg, next) ->
-       printf "You just typed %s!\n" msg ;
+       print msg ;
        run next
-    | Join Quit _ -> ()
+    | Join Quit _ ->
+       print "Bye!" ;
+       exit 0
     | Join Loop prog ->
        run prog ;
        run (Join (Loop prog))
@@ -190,8 +192,7 @@ module FreeExample = struct
        print "This is where you would type something in" ;
        cont "dummy value" |> dry_run
     | Join Message (_, next) ->
-       print "This is where it would repeat back to you what \
-              you typed" ;
+       print "This is where the program would say something to you" ;
        dry_run next
     | Join Quit _ -> ()
     | Join Loop prog ->
@@ -199,12 +200,17 @@ module FreeExample = struct
        print "This is where it would repeat the above step in an \
               infinite loop" 
   
-  
-  let cool_program =
-    let* () = greeting in
-    let* input = prompt in
-    let* () = message input in
-    quit
+  let repl =
+    let one_round =
+      let* () = message "Please type something!" in
+      let* input = prompt in
+      if input = "q"
+      then quit
+      else message (sprintf "You just typed %s!" input)
+    in
+    loop one_round
+
+  let cool_program = greeting >> repl
 end
 
 module type MONOID = sig
@@ -779,7 +785,9 @@ module Example = struct
   end
 end
 
-                
+
+(* let () = FreeExample.(run cool_program) *)
+
 
 (*
  * Copyright (c) 2021 Matt Teichman
