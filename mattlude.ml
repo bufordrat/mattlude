@@ -785,6 +785,42 @@ module Example = struct
   end
 end
 
+module type PEEKABLE = sig
+  type 'a peekaboo
+  val peek : 'a peekaboo -> 'a
+end
+
+module LetsPeek : PEEKABLE = struct
+  type 'a peekaboo = 'a List.t
+  let peek = List.hd
+end
+
+
+module type COLLECTION = sig
+  type elt
+  val get_head : elt List.t -> elt
+end
+
+module LetsCollect : COLLECTION = struct
+  type elt = int
+  let get_head = List.hd
+end
+
+
+module type ADDABLE = sig
+  type number
+  val plus : number -> number -> number
+end
+
+module type ADDABLE_INT = sig
+  include ADDABLE with type number = int
+end
+
+module CoolNumber : ADDABLE with type number = int = struct
+  type number = int
+  let plus = (+)
+end
+
 
 (* let () = FreeExample.(run cool_program) *)
 
