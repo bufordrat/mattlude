@@ -1,6 +1,6 @@
 ; mattlude                                -*- dune -*-
 ; dune
-; Matt Teichman <https://elucidations.now.sh>
+; Matt Teichman <https://elucidations.vercel.app>
 
 (library
  (name mattlude)
