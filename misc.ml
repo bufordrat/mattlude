@@ -56,6 +56,23 @@ module FreeExample = struct
   let quit = lift @@ Quit ()
   let loop prog = Join (Loop prog)
 
+  let rec dry_run = function
+    | Pure next -> next
+    | Join Greeting next ->
+       print "This is where it would greet you" ;
+       dry_run next
+    | Join Prompt cont ->
+       print "This is where you would type something in" ;
+       cont "dummy value" |> dry_run
+    | Join Message (_, next) ->
+       print "This is where the program would say something to you" ;
+       dry_run next
+    | Join Quit _ -> ()
+    | Join Loop prog ->
+       dry_run prog ;
+       print "This is where it would repeat the above step in an \
+              infinite loop"
+  
   let rec run = function
     | Pure next -> next
     | Join Greeting next ->
@@ -74,24 +91,24 @@ module FreeExample = struct
        run prog ;
        run (Join (Loop prog))
 
-
-  let rec dry_run = function
+  let rec run_log = function
     | Pure next -> next
     | Join Greeting next ->
-       print "This is where it would greet you" ;
-       dry_run next
+       print "LOG: Doing Greeting!" ;
+       run_log next
     | Join Prompt cont ->
-       print "This is where you would type something in" ;
-       cont "dummy value" |> dry_run
+       print "LOG: Printing the prompt!" ;
+       cont "" |> run_log
     | Join Message (_, next) ->
-       print "This is where the program would say something to you" ;
-       dry_run next
-    | Join Quit _ -> ()
+       print "LOG: Printing the message!" ;
+       run_log next
+    | Join Quit next ->
+       print "LOG: Quitting!" ;
+       run_log next
     | Join Loop prog ->
-       dry_run prog ;
-       print "This is where it would repeat the above step in an \
-              infinite loop" 
-  
+       print "LOG: Repeating the loop!" ;
+       run prog
+
   let repl =
     let one_round =
       let* () = message "Please type something!" in
@@ -571,19 +588,53 @@ module LetsCollect : COLLECTION = struct
 end
 
 
+(* module type ADDABLE = sig
+ *   type number
+ *   val plus : number -> number -> number
+ * end *)
+
+(* module type ADDABLE_INT = sig
+ *   include ADDABLE with type number = int
+ * end
+ * 
+ * module CoolNumber : ADDABLE with type number = int = struct
+ *   type number = int
+ *   let plus = (+)
+ * end *)
+
 module type ADDABLE = sig
   type number
   val plus : number -> number -> number
 end
 
-module type ADDABLE_INT = sig
-  include ADDABLE with type number = int
+module type RING = sig
+  include ADDABLE
+  val times : number -> number -> number
 end
 
-module CoolNumber : ADDABLE with type number = int = struct
+module ExampleRing : RING = struct
   type number = int
   let plus = (+)
+  let times = ( * )
 end
+
+type small = [ `A | `B ]
+
+type big = [ small | `C ]
+
+let example1 : small = `A
+
+let example2 : small :> big = example1
+
+let example3 :> big = example1
+
+let example4 = (example1 :> big)
+
+type keith_or_matt = Keith | Matt
+
+type keith_or_matt_or_whatever =
+  [ `Keith | `Matt ]
+
 
 
 (* let () = FreeExample.(run cool_program) *)
