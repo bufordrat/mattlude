@@ -44,6 +44,11 @@ module FunctorGoodies (F : FUNCTOR) = struct
   let (<&>) = (let+)
   let (>|=) = (let+)
   let (<$>) = F.map
+
+  module Compose (F1 : FUNCTOR) (F2 : FUNCTOR) : FUNCTOR = struct
+    type 'a t = 'a F1.t F2.t
+    let map f composed = F2.map (F1.map f) composed
+  end
 end
                   
 module ApplicativeGoodies (A : APPLICATIVE) = struct
