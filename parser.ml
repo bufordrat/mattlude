@@ -2,7 +2,7 @@
  * OS short for 'output stream' *)
 
 open Prelude
-open Goodies
+open Endofunctors
 
 module Make (OS: TOKEN) (IS : TOKEN) = struct
 
@@ -23,7 +23,7 @@ module Make (OS: TOKEN) (IS : TOKEN) = struct
                       let* (result1, remainder1) = prsr input in
                       (k result1) remainder1
   end
-  include Monad2App (ParserMonad)
+  include Monad.ToApplicative (ParserMonad)
   
   let run_parser prsr input = prsr input
   

@@ -6,7 +6,7 @@
  *)
 
 open Prelude
-open Goodies
+open Endofunctors
 
 (** [version] is the library version metadata alist. *)
 (* let version = V.data *)
@@ -27,99 +27,153 @@ module Free = struct
       let lift cmd = Join (F.map pure cmd)
     end
     include FreeMonad
-    include Monad2App (FreeMonad)
+    include Monad.ToApplicative (FreeMonad)
   end
-end
 
-module FreeExample = struct
-  module Program = struct
-    type 'next t =
-      | Greeting of 'next
-      | Prompt of (string -> 'next)
-      | Message of string * 'next
-      | Quit of 'next
-      | Loop of 'next
+  module Example = struct
+    module Program = struct
+      type 'next t =
+        | Greeting of 'next
+        | Prompt of (string -> 'next)
+        | Message of string * 'next
+        | Quit of 'next
+        | Loop of 'next
 
-    let map f = function
-      | Greeting next -> Greeting (f next)
-      | Prompt cont -> Prompt (fun x -> cont x |> f)
-      | Message (msg, next) -> Message (msg, f next)
-      | Quit next -> Quit (f next)
-      | Loop prog -> Loop (f prog)
+      let map f = function
+        | Greeting next -> Greeting (f next)
+        | Prompt cont -> Prompt (fun x -> cont x |> f)
+        | Message (msg, next) -> Message (msg, f next)
+        | Quit next -> Quit (f next)
+        | Loop prog -> Loop (f prog)
+    end
+    module FProg = Make (Program)
+
+    module Log = struct
+      type 'next t =
+        | Log of string * 'next
+        | Silent of 'next
+
+      let map f = function
+        | Log (msg, next) -> Log (msg, f next)
+        | Silent next -> Silent (f next)
+    end
+
+    let greeting = FProg.lift @@ Greeting ()
+    let prompt = FProg.lift @@ Prompt id
+    let message m = FProg.lift @@ Message (m, ())
+    let quit = FProg.lift @@ Quit ()
+    let loop prog = FProg.Join (Loop prog)
+
+    module DryRun = struct
+      open FProg
+      
+      let rec dry_run = function
+        | Pure next -> next
+        | Join Greeting next ->
+           print "This is where it would greet you" ;
+           dry_run next
+        | Join Prompt cont ->
+           print "This is where you would type something in" ;
+           cont "dummy value" |> dry_run
+        | Join Message (_, next) ->
+           print "This is where the program would say something to you" ;
+           dry_run next
+        | Join Quit _ -> ()
+        | Join Loop prog ->
+           dry_run prog ;
+           print "This is where it would repeat the above step in an \
+                  infinite loop"
+      
+      let rec run = function
+        | Pure next -> next
+        | Join Greeting next ->
+           print "Wzup!  Type 'q' to quit." ;
+           run next
+        | Join Prompt cont ->
+           let input = input_line stdin in
+           cont input |> run
+        | Join Message (msg, next) ->
+           print msg ;
+           run next
+        | Join Quit _ ->
+           print "Bye!" ;
+           exit 0
+        | Join Loop prog ->
+           run prog ;
+           run (Join (Loop prog))
+      
+      let repl =
+        let one_round =
+          let* () = message "Please type something!" in
+          let* input = prompt in
+          if input = "q"
+          then quit
+          else message (sprintf "You just typed %s!" input)
+        in
+        loop one_round
+      
+      let cool_program = greeting >> repl
+    end
+
+    module Logger = struct
+
+      module type RUN = sig
+        include FUNCTOR
+        (* 'a in the target type is side effect-ful *)
+        val run : 'a t -> 'a
+      end
+
+      module IOProg = struct
+        open Program
+        let rec run = function
+          | Greeting next ->
+             print "Wzup!  Type 'q' to quit." ;
+             next
+          | Prompt cont ->
+             let input = input_line stdin in
+             cont input
+          | Message (msg, next) ->
+             print msg ;
+             next
+          | Quit _ ->
+             print "Bye!" ;
+             exit 0
+          | Loop prog ->
+             prog ;
+             run (Loop prog)
+      end
+
+      module ProgWithLog = struct
+        module PL = Functor.Compose (Log) (Program)
+        open PL
+        
+        (* let rec run = function PL.Log (msg, next) -> print msg ; IOProg.run next *)
+      end
+      
+      let rec run = 
+        let open FProg in function
+                       | Pure next -> next
+                       | Join Greeting next ->
+                          print "Wzup!  Type 'q' to quit." ;
+                          run next
+                       | Join Prompt cont ->
+                          let input = input_line stdin in
+                          cont input |> run
+                       | Join Message (msg, next) ->
+                          print msg ;
+                          run next
+                       | Join Quit _ ->
+                          print "Bye!" ;
+                          exit 0
+                       | Join Loop prog ->
+                          run prog ;
+                          run (Join (Loop prog))
+      
+      
+      
+    end
   end
-  module FProg = Free.Make (Program)
-  open FProg
 
-  let greeting = lift @@ Greeting ()
-  let prompt = lift @@ Prompt id
-  let message m = lift @@ Message (m, ())
-  let quit = lift @@ Quit ()
-  let loop prog = Join (Loop prog)
-
-  let rec dry_run = function
-    | Pure next -> next
-    | Join Greeting next ->
-       print "This is where it would greet you" ;
-       dry_run next
-    | Join Prompt cont ->
-       print "This is where you would type something in" ;
-       cont "dummy value" |> dry_run
-    | Join Message (_, next) ->
-       print "This is where the program would say something to you" ;
-       dry_run next
-    | Join Quit _ -> ()
-    | Join Loop prog ->
-       dry_run prog ;
-       print "This is where it would repeat the above step in an \
-              infinite loop"
-  
-  let rec run = function
-    | Pure next -> next
-    | Join Greeting next ->
-       print "Wzup!  Type 'q' to quit." ;
-       run next
-    | Join Prompt cont ->
-       let input = input_line stdin in
-       cont input |> run
-    | Join Message (msg, next) ->
-       print msg ;
-       run next
-    | Join Quit _ ->
-       print "Bye!" ;
-       exit 0
-    | Join Loop prog ->
-       run prog ;
-       run (Join (Loop prog))
-
-  let rec run_log = function
-    | Pure next -> next
-    | Join Greeting next ->
-       print "LOG: Doing Greeting!" ;
-       run_log next
-    | Join Prompt cont ->
-       print "LOG: Printing the prompt!" ;
-       cont "" |> run_log
-    | Join Message (_, next) ->
-       print "LOG: Printing the message!" ;
-       run_log next
-    | Join Quit next ->
-       print "LOG: Quitting!" ;
-       run_log next
-    | Join Loop prog ->
-       print "LOG: Repeating the loop!" ;
-       run prog
-
-  let repl =
-    let one_round =
-      let* () = message "Please type something!" in
-      let* input = prompt in
-      if input = "q"
-      then quit
-      else message (sprintf "You just typed %s!" input)
-    in
-    loop one_round
-
-  let cool_program = greeting >> repl
 end
 
 module StringParserF = struct
@@ -134,7 +188,7 @@ module StringParserF = struct
                       let* (result1, remainder1) = prsr input in
                       (k result1) remainder1
   end
-  include Monad2App (ParserMonad)
+  include Monad.ToApplicative (ParserMonad)
 
   let alternative prsr1 prsr2 input =
     match prsr1 input with
