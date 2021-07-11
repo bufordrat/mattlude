@@ -129,7 +129,7 @@ module Free = struct
 
         type 'a t = 'a Program.t
 
-        let rec run : 'a t -> 'a = function
+        let rec run = function
           | Greeting next ->
              print "Wzup!  Type 'q' to quit." ;
              next
@@ -139,7 +139,7 @@ module Free = struct
           | Message (msg, next) ->
              print msg ;
              next
-          | Quit next ->
+          | Quit _ ->
              print "Bye!" ;
              exit 0
           | Loop prog ->
