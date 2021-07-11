@@ -48,21 +48,24 @@ module Free = struct
     end
     module FProg = Make (Program)
 
-    module Log = struct
-      type 'next t =
-        | Log of string * 'next
-        | Silent of 'next
-
-      let map f = function
-        | Log (msg, next) -> Log (msg, f next)
-        | Silent next -> Silent (f next)
-    end
-
     let greeting = FProg.lift @@ Greeting ()
     let prompt = FProg.lift @@ Prompt id
     let message m = FProg.lift @@ Message (m, ())
     let quit = FProg.lift @@ Quit ()
     let loop prog = FProg.Join (Loop prog)
+
+    let repl =
+      let open FProg in
+      let one_round =
+        let* () = message "Please type something!" in
+        let* input = prompt in
+        if input = "q"
+        then quit
+        else message (sprintf "You just typed %s!" input)
+      in
+      loop one_round
+    
+    let cool_program = FProg.(greeting >> repl)
 
     module DryRun = struct
       open FProg
@@ -101,18 +104,6 @@ module Free = struct
         | Join Loop prog ->
            run prog ;
            run (Join (Loop prog))
-      
-      let repl =
-        let one_round =
-          let* () = message "Please type something!" in
-          let* input = prompt in
-          if input = "q"
-          then quit
-          else message (sprintf "You just typed %s!" input)
-        in
-        loop one_round
-      
-      let cool_program = greeting >> repl
     end
 
     module Logger = struct
@@ -122,10 +113,23 @@ module Free = struct
         (* 'a in the target type is side effect-ful *)
         val run : 'a t -> 'a
       end
-
-      module IOProg = struct
+      
+      module Log = struct
+        type 'next t =
+          | Log of string * 'next
+          | Silent of 'next
+        
+        let map f = function
+          | Log (msg, next) -> Log (msg, f next)
+          | Silent next -> Silent (f next)
+      end
+      
+      module Interpreter = struct
         open Program
-        let rec run = function
+
+        type 'a t = 'a Program.t
+
+        let rec run : 'a t -> 'a = function
           | Greeting next ->
              print "Wzup!  Type 'q' to quit." ;
              next
@@ -135,40 +139,61 @@ module Free = struct
           | Message (msg, next) ->
              print msg ;
              next
-          | Quit _ ->
+          | Quit next ->
              print "Bye!" ;
              exit 0
           | Loop prog ->
              prog ;
+             (* TODO: this branch is making it unit t -> unit *)
              run (Loop prog)
       end
 
-      module ProgWithLog = struct
-        module PL = Functor.Compose (Log) (Program)
-        open PL
+      module LogInterpreter = struct
+        module WL = Functor.Compose (Log) (Program)
+        type 'a t = 'a WL.t
+        let map = WL.map
         
-        (* let rec run = function PL.Log (msg, next) -> print msg ; IOProg.run next *)
+        let run = function
+          | Log.Log (msg, next) -> print msg ; Interpreter.run next
+          | Silent next -> Interpreter.run next
       end
-      
-      let rec run = 
-        let open FProg in function
-                       | Pure next -> next
-                       | Join Greeting next ->
-                          print "Wzup!  Type 'q' to quit." ;
-                          run next
-                       | Join Prompt cont ->
-                          let input = input_line stdin in
-                          cont input |> run
-                       | Join Message (msg, next) ->
-                          print msg ;
-                          run next
-                       | Join Quit _ ->
-                          print "Bye!" ;
-                          exit 0
-                       | Join Loop prog ->
-                          run prog ;
-                          run (Join (Loop prog))
-      
+
+      module RunFree (Intr : RUN) = struct
+        module U = Make (Intr)
+        open U
+
+        let rec run = function
+          | Pure x -> x
+          | Join next -> Intr.run next |> run
+
+        let rec augment nt = function
+          | Pure x -> Pure x
+          | Join next -> Join (Intr.map (augment nt) (nt next))
+
+      end
+
+      let add_logs =
+        let open Program in
+        let open Log in
+        function
+        | Greeting next ->
+           Log ("LOG: displaying greeting",
+                    Greeting next)
+        | Prompt cont ->
+           Log ("LOG: displaying prompt",
+                Prompt cont)
+        | Message (msg,next) ->
+           Log ("LOG: printing message",
+                Message (msg, next))
+        | Quit next ->
+           Log ("LOG: quitting",
+                Quit next)
+        | Loop prog ->
+           Log ("LOG: starting over",
+                Loop prog)
+
+      (* module RunMain = RunFree (LogInterpreter) *)
+
       
       
     end

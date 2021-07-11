@@ -36,9 +36,9 @@ module Functor = struct
     let (<$>) = F.map
   end
 
-  module Compose (F1 : FUNCTOR) (F2 : FUNCTOR) : FUNCTOR = struct
-    type 'a t = 'a F1.t F2.t
-    let map f composed = F2.map (F1.map f) composed
+  module Compose (F1 : FUNCTOR) (F2 : FUNCTOR) = struct
+    type 'a t = 'a F2.t F1.t
+    let map f composed = F1.map (F2.map f) composed
   end
 end
 module type FUNCTOR = Functor.FUNCTOR
