@@ -37,14 +37,14 @@ module Free = struct
         | Prompt of (string -> 'next)
         | Message of string * 'next
         | Quit of 'next
-        | Loop of 'next
+        (* | Loop of 'next *)
 
       let map f = function
         | Greeting next -> Greeting (f next)
         | Prompt cont -> Prompt (fun x -> cont x |> f)
         | Message (msg, next) -> Message (msg, f next)
         | Quit next -> Quit (f next)
-        | Loop prog -> Loop (f prog)
+        (* | Loop prog -> Loop (f prog) *)
     end
     module FProg = Make (Program)
 
@@ -52,9 +52,9 @@ module Free = struct
     let prompt = FProg.lift @@ Prompt id
     let message m = FProg.lift @@ Message (m, ())
     let quit = FProg.lift @@ Quit ()
-    let loop prog = FProg.Join (Loop prog)
+    (* let loop prog = FProg.Join (Loop prog) *)
 
-    let repl =
+    let repl : unit FProg.t =
       let open FProg in
       let one_round =
         let* () = message "Please type something!" in
@@ -63,8 +63,12 @@ module Free = struct
         then quit
         else message (sprintf "You just typed %s!" input)
       in
+      let rec loop prog =
+        let* _ = prog in
+        loop prog
+      in
       loop one_round
-    
+      
     let cool_program = FProg.(greeting >> repl)
 
     module DryRun = struct
@@ -82,10 +86,6 @@ module Free = struct
            print "This is where the program would say something to you" ;
            dry_run next
         | Join Quit _ -> ()
-        | Join Loop prog ->
-           dry_run prog ;
-           print "This is where it would repeat the above step in an \
-                  infinite loop"
       
       let rec run = function
         | Pure next -> next
@@ -101,9 +101,6 @@ module Free = struct
         | Join Quit _ ->
            print "Bye!" ;
            exit 0
-        | Join Loop prog ->
-           run prog ;
-           run (Join (Loop prog))
     end
 
     module Logger = struct
@@ -129,7 +126,7 @@ module Free = struct
 
         type 'a t = 'a Program.t
 
-        let rec run = function
+        let run = function
           | Greeting next ->
              print "Wzup!  Type 'q' to quit." ;
              next
@@ -142,10 +139,7 @@ module Free = struct
           | Quit _ ->
              print "Bye!" ;
              exit 0
-          | Loop prog ->
-             prog ;
-             (* TODO: this branch is making it unit t -> unit *)
-             run (Loop prog)
+
       end
 
       module LogInterpreter = struct
@@ -188,9 +182,9 @@ module Free = struct
         | Quit next ->
            Log ("LOG: quitting",
                 Quit next)
-        | Loop prog ->
-           Log ("LOG: starting over",
-                Loop prog)
+        (* | Loop prog ->
+         *    Log ("LOG: starting over",
+         *         Loop prog) *)
 
       (* module RunMain = RunFree (LogInterpreter) *)
 
