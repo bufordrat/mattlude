@@ -37,12 +37,14 @@ module Free = struct
         | Prompt of (string -> 'next)
         | Message of string * 'next
         | Quit of 'next
+        (* | Loop of 'next *)
 
       let map f = function
         | Greeting next -> Greeting (f next)
         | Prompt cont -> Prompt (fun x -> cont x |> f)
         | Message (msg, next) -> Message (msg, f next)
         | Quit next -> Quit (f next)
+        (* | Loop prog -> Loop (f prog) *)
     end
     module FProg = Make (Program)
 
@@ -50,6 +52,7 @@ module Free = struct
     let prompt = FProg.lift @@ Prompt id
     let message m = FProg.lift @@ Message (m, ())
     let quit = FProg.lift @@ Quit ()
+    (* let loop prog = FProg.Join (Loop prog) *)
 
     let repl : unit FProg.t =
       let open FProg in
@@ -60,7 +63,11 @@ module Free = struct
         then quit
         else message (sprintf "You just typed %s!" input)
       in
-      one_round
+      let rec loop prog =
+        let* _ = prog in
+        loop prog
+      in
+      loop one_round
       
     let cool_program = FProg.(greeting >> repl)
 
@@ -115,9 +122,9 @@ module Free = struct
       end
       
       module Interpreter = struct
-        include Program
+        open Program
 
-        (* type 'a t = 'a Program.t *)
+        type 'a t = 'a Program.t
 
         let run = function
           | Greeting next ->
@@ -132,36 +139,30 @@ module Free = struct
           | Quit _ ->
              print "Bye!" ;
              exit 0
+
       end
 
       module LogInterpreter = struct
-        include Log
-        (* module WL = Functor.Compose (Log) (Program)
-         * type 'a t = 'a WL.t
-         * let map = WL.map *)
+        module WL = Functor.Compose (Log) (Program)
+        type 'a t = 'a WL.t
+        let map = WL.map
         
         let run = function
           | Log.Log (msg, next) -> print msg ; Interpreter.run next
           | Silent next -> Interpreter.run next
       end
 
-      module Compose_Intr (Intr1 : RUN) (Intr2 : RUN) = struct
-        module Combined = Functor.Compose (Intr1) (Intr2)
-        open Combined
+      module RunFree (Intr : RUN) = struct
+        module U = Make (Intr)
+        open U
 
-        module ComposedFree = Make (Combined)
+        let rec run = function
+          | Pure x -> x
+          | Join next -> Intr.run next |> run
 
         let rec augment nt = function
           | Pure x -> Pure x
           | Join next -> Join (Intr.map (augment nt) (nt next))
-        
-        let rec run cprog =
-          cprog
-          |> 
-          function
-          | Pure x -> x
-          | Join next -> Intr1.run next |> Intr2.run
-
 
       end
 
@@ -181,6 +182,14 @@ module Free = struct
         | Quit next ->
            Log ("LOG: quitting",
                 Quit next)
+        (* | Loop prog ->
+         *    Log ("LOG: starting over",
+         *         Loop prog) *)
+
+      (* module RunMain = RunFree (LogInterpreter) *)
+
+      
+      
     end
   end
 
