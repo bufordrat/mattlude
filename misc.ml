@@ -37,14 +37,12 @@ module Free = struct
         | Prompt of (string -> 'next)
         | Message of string * 'next
         | Quit of 'next
-        (* | Loop of 'next *)
 
       let map f = function
         | Greeting next -> Greeting (f next)
         | Prompt cont -> Prompt (fun x -> cont x |> f)
         | Message (msg, next) -> Message (msg, f next)
         | Quit next -> Quit (f next)
-        (* | Loop prog -> Loop (f prog) *)
     end
     module FProg = Make (Program)
 
@@ -52,8 +50,7 @@ module Free = struct
     let prompt = FProg.lift @@ Prompt id
     let message m = FProg.lift @@ Message (m, ())
     let quit = FProg.lift @@ Quit ()
-    (* let loop prog = FProg.Join (Loop prog) *)
-
+ 
     let repl : unit FProg.t =
       let open FProg in
       let one_round =
@@ -63,11 +60,7 @@ module Free = struct
         then quit
         else message (sprintf "You just typed %s!" input)
       in
-      let rec loop prog =
-        let* _ = prog in
-        loop prog
-      in
-      loop one_round
+      one_round
       
     let cool_program = FProg.(greeting >> repl)
 
@@ -182,13 +175,11 @@ module Free = struct
         | Quit next ->
            Log ("LOG: quitting",
                 Quit next)
-        (* | Loop prog ->
-         *    Log ("LOG: starting over",
-         *         Loop prog) *)
 
-      (* module RunMain = RunFree (LogInterpreter) *)
+      module RunMain = RunFree (LogInterpreter)
 
-      
+      let runWithLog freestuff = (RunMain.augment add_logs) freestuff
+                                 |> RunMain.run
       
     end
   end
