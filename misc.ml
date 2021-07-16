@@ -140,26 +140,37 @@ module Free = struct
         type 'a t = 'a WL.t
         let map = WL.map
         
-        let run = function
+        let run : 'a WL.t -> 'a = function
           | Log.Log (msg, next) -> print msg ; Interpreter.run next
           | Silent next -> Interpreter.run next
       end
 
       module RunFree (Intr : RUN) = struct
-        module U = Make (Intr)
-        open U
+        module Rat = Make (Intr)
 
-        let rec run = function
-          | Pure x -> x
-          | Join next -> Intr.run next |> run
-
-        let rec augment nt = function
-          | Pure x -> Pure x
-          | Join next -> Join (Intr.map (augment nt) (nt next))
-
+        let rec run_free =
+          let open Rat in
+          function
+          | Pure x -> pure x
+          | Join next -> Intr.run next |> run_free
       end
 
-      let add_logs =
+      module ComposeRuns (Intr1 : RUN) (Intr2 : RUN) = struct
+        module F1 = Make (Intr1)
+        module F2 = Make (Intr2)
+        
+        let rec augment : ('a Intr1.t -> 'a Intr2.t) -> 'a F1.t -> 'a F2.t =
+          let open F1 in
+          fun nt free ->
+          match free with
+          | Pure x -> Pure x
+          | Join next -> Join (F1.map (augment nt) (nt next))
+      end
+      
+
+      (* end *)
+
+      let add_logs : 'a Interpreter.t -> 'a LogInterpreter.t=
         let open Program in
         let open Log in
         function
@@ -176,10 +187,9 @@ module Free = struct
            Log ("LOG: quitting",
                 Quit next)
 
-      module RunMain = RunFree (LogInterpreter)
-
-      let runWithLog freestuff = (RunMain.augment add_logs) freestuff
-                                 |> RunMain.run
+      (* module RunMain = RunFree (LogInterpreter)
+       * 
+       * let run_with_logging fr = Interpreter.run (RunMain.augment add_logs fr) *)
       
     end
   end
