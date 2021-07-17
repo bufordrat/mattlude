@@ -12,16 +12,6 @@ module type FOLDABLE = sig
   val null : 'a t -> bool
 end
 
-module type TOKEN = sig
-  include FOLDABLE
-  type tok
-  type stream = tok t
-  val pop : 'a t -> 'a option * 'a t
-  val cons : 'a -> 'a t -> 'a t
-  val re_append : 'a t -> 'a t -> 'a t
-  val rev: 'a t -> 'a t
-end
-
 module Functor = struct
   module type FUNCTOR = sig
     type 'a t

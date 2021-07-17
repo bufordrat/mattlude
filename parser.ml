@@ -4,6 +4,16 @@
 open Prelude
 open Endofunctors
 
+module type TOKEN = sig
+  include FOLDABLE
+  type tok
+  type stream = tok t
+  val pop : 'a t -> 'a option * 'a t
+  val cons : 'a -> 'a t -> 'a t
+  val re_append : 'a t -> 'a t -> 'a t
+  val rev: 'a t -> 'a t
+end
+
 module Make (OS: TOKEN) (IS : TOKEN) = struct
 
   module PResult = Result.Make (String)
