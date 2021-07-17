@@ -103,21 +103,19 @@ module Free = struct
         (* 'a in the target type is side effect-ful *)
         val run : 'a t -> 'a
       end
-      
-      module Log = struct
-        type 'next t =
-          | Log of string * 'next
-          | Silent of 'next
-        
-        let map f = function
-          | Log (msg, next) -> Log (msg, f next)
-          | Silent next -> Silent (f next)
-      end
-      
-      module Interpreter = struct
-        open Program
 
-        type 'a t = 'a Program.t
+      module Program = struct
+        type 'next t =
+          | Greeting of 'next
+          | Prompt of (string -> 'next)
+          | Message of string * 'next
+          | Quit of 'next
+
+        let map f = function
+          | Greeting next -> Greeting (f next)
+          | Prompt cont -> Prompt (fun x -> cont x |> f)
+          | Message (msg, next) -> Message (msg, f next)
+          | Quit next -> Quit (f next)
 
         let run = function
           | Greeting next ->
@@ -132,60 +130,67 @@ module Free = struct
           | Quit _ ->
              print "Bye!" ;
              exit 0
-
-      end
-
-      module LogInterpreter = struct
-        module WL = Functor.Compose (Log) (Program)
-        type 'a t = 'a WL.t
-        let map = WL.map
-        
-        let run : 'a WL.t -> 'a = function
-          | Log.Log (msg, next) -> print msg ; Interpreter.run next
-          | Silent next -> Interpreter.run next
-      end
-
-      module RunFree (Intr : RUN) = struct
-        module Rat = Make (Intr)
-
-        let rec run_free =
-          let open Rat in
-          function
-          | Pure x -> pure x
-          | Join next -> Intr.run next |> run_free
-      end
-
-      module ComposeRuns (Intr1 : RUN) (Intr2 : RUN) = struct
-        module F1 = Make (Intr1)
-        module F2 = Make (Intr2)
-        
-        let rec augment : ('a Intr1.t -> 'a Intr2.t) -> 'a F1.t -> 'a F2.t =
-          let open F1 in
-          fun nt free ->
-          match free with
-          | Pure x -> Pure x
-          | Join next -> Join (F1.map (augment nt) (nt next))
-      end
+      end      
       
+      module Log = struct
+        type 'next t =
+          | Log of string * 'next
+          | Silent of 'next
+        
+        let map f = function
+          | Log (msg, next) -> Log (msg, f next)
+          | Silent next -> Silent (f next)
 
-      (* end *)
+        let rec run = function
+          | Silent next -> next
+          | Log (msg, next) -> print msg; next
+      end
 
-      let add_logs : 'a Interpreter.t -> 'a LogInterpreter.t=
-        let open Program in
-        let open Log in
-        function
-        | Greeting next ->
-           Log ("LOG: displaying greeting",
-                    Greeting next)
-        | Prompt cont ->
-           Log ("LOG: displaying prompt",
-                Prompt cont)
-        | Message (msg,next) ->
-           Log ("LOG: printing message",
-                Message (msg, next))
-        | Quit next ->
-           Log ("LOG: quitting",
-                Quit next)
+      module Compose = struct
+        (* TODO: this code is going to need a higher order functor
+           somewhere, i.e. a functor whose input is two RUN modules
+           and whose output is a combined run of the composition *)
+        
+        module Run (Intr1 : RUN) (Intr2 : RUN) = struct
+          module Comb = Functor.Compose (Intr1) (Intr2)
+          type 'a t = 'a Comb.t
+          
+          (* function to run the composition goes here *)
+          let run = Intr1.run
+        end
+        
+        module FreeRun (Intr : RUN) = struct
+          (* create free monadic version of composed functor and
+             define run for it *)
+        end
+        
+        module ToFree (Intr1 : RUN) (Intr2 : RUN) = struct
+          (* take two underlying functors w/ run functions and return
+             free monad composition of them with a run function *)
+        end
+      end
+
+      module ComposeProgLog = struct
+        module CPL = Functor.Compose (Log) (Program)
+        
+        let add_logs =
+          let open Program in
+          let open Log in
+          function
+          | Greeting next ->
+             Log ("LOG: displaying greeting",
+                  Greeting next)
+          | Prompt cont ->
+             Log ("LOG: displaying prompt",
+                  Prompt cont)
+          | Message (msg,next) ->
+             Log ("LOG: printing message",
+                  Message (msg, next))
+          | Quit next ->
+             Log ("LOG: quitting",
+                  Quit next)
+      end
+    
 
       (* module RunMain = RunFree (LogInterpreter)
        * 
@@ -711,6 +716,44 @@ type keith_or_matt_or_whatever =
 
 
 
+
+
+      (* module LogInterpreter = struct
+       *   module WL = Functor.Compose (Log) (Program)
+       *   type 'a t = 'a WL.t
+       *   let map = WL.map
+       *   
+       *   let run : 'a WL.t -> 'a = function
+       *     | Log.Log (msg, next) -> print msg ; Interpreter.run next
+       *     | Silent next -> Interpreter.run next
+       * end
+       * 
+       * module RunFree (Intr : RUN) = struct
+       *   module Rat = Make (Intr)
+       * 
+       *   let rec run_free =
+       *     let open Rat in
+       *     function
+       *     | Pure x -> pure x
+       *     | Join next -> Intr.run next |> run_free
+       * end
+       * 
+       * module ComposeRuns (Intr1 : RUN) (Intr2 : RUN) = struct
+       *   module F1 = Make (Intr1)
+       *   module F2 = Make (Intr2)
+       *   
+       *   let rec augment : ('a Intr1.t -> 'a Intr2.t) -> 'a F1.t -> 'a F2.t =
+       *     let open F1 in
+       *     fun nt free ->
+       *     match free with
+       *     | Pure x -> Pure x
+       *     | Join next -> Join (F1.map (augment nt) (nt next))
+       * end *)
+
+
+
+
+
 (* let () = FreeExample.(run cool_program) *)
 
 
@@ -729,3 +772,4 @@ type keith_or_matt_or_whatever =
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
+
