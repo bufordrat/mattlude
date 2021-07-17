@@ -24,87 +24,42 @@ module Free = struct
         | Pure x -> k x
         | Join rest -> Join (F.map (flip bind @@ k) rest)
       
-      let lift cmd = Join (F.map pure cmd)
+      let lift cmd = Join (F.map pure cmd)          
     end
     include FreeMonad
     include Monad.ToApplicative (FreeMonad)
   end
 
+  module type RUN = sig
+    include FUNCTOR
+    (* run should translate an underlying functorial type into an IO
+       action, which is to say that you should interpret 'a in the
+       target type as side effect-ful *)
+    val run : 'a t -> 'a
+  end
+  
+  module Transform = struct               
+    module FreeRun (Intr : RUN) = struct
+      module FR = Make (Intr)
+      include FR
+      
+      let rec run = let open FR in
+                    function
+                    | Pure x -> x
+                    | Join next -> Intr.run next |> run
+    end
+
+    module ToFree (Intr : RUN) (MF : functor (R : RUN) -> RUN) = struct
+      module Combined = MF (Intr)
+      module FreeComb = FreeRun (Combined)
+      include FreeComb
+    end
+  end
+  
   module Example = struct
-    module Program = struct
-      type 'next t =
-        | Greeting of 'next
-        | Prompt of (string -> 'next)
-        | Message of string * 'next
-        | Quit of 'next
-
-      let map f = function
-        | Greeting next -> Greeting (f next)
-        | Prompt cont -> Prompt (fun x -> cont x |> f)
-        | Message (msg, next) -> Message (msg, f next)
-        | Quit next -> Quit (f next)
-    end
-    module FProg = Make (Program)
-
-    let greeting = FProg.lift @@ Greeting ()
-    let prompt = FProg.lift @@ Prompt id
-    let message m = FProg.lift @@ Message (m, ())
-    let quit = FProg.lift @@ Quit ()
- 
-    let repl : unit FProg.t =
-      let open FProg in
-      let one_round =
-        let* () = message "Please type something!" in
-        let* input = prompt in
-        if input = "q"
-        then quit
-        else message (sprintf "You just typed %s!" input)
-      in
-      one_round
-      
-    let cool_program = FProg.(greeting >> repl)
-
-    module DryRun = struct
-      open FProg
-      
-      let rec dry_run = function
-        | Pure next -> next
-        | Join Greeting next ->
-           print "This is where it would greet you" ;
-           dry_run next
-        | Join Prompt cont ->
-           print "This is where you would type something in" ;
-           cont "dummy value" |> dry_run
-        | Join Message (_, next) ->
-           print "This is where the program would say something to you" ;
-           dry_run next
-        | Join Quit _ -> ()
-      
-      let rec run = function
-        | Pure next -> next
-        | Join Greeting next ->
-           print "Wzup!  Type 'q' to quit." ;
-           run next
-        | Join Prompt cont ->
-           let input = input_line stdin in
-           cont input |> run
-        | Join Message (msg, next) ->
-           print msg ;
-           run next
-        | Join Quit _ ->
-           print "Bye!" ;
-           exit 0
-    end
-
+    
     module Logger = struct
-
-      module type RUN = sig
-        include FUNCTOR
-        (* 'a in the target type is side effect-ful *)
-        val run : 'a t -> 'a
-      end
-
-      module Main = struct
+      module Program = struct
         type 'next t =
           | Greeting of 'next
           | Prompt of (string -> 'next)
@@ -140,77 +95,131 @@ module Free = struct
         let map f = function
           | Log (msg, next) -> Log (msg, f next)
           | Silent next -> Silent (f next)
-
-        let rec run = function
-          | Silent next -> next
-          | Log (msg, next) -> print msg; next
       end
+
+      module Enloggen (Intr: RUN) = struct
+        module EL = Functor.Compose (Log) (Intr)
+        include EL
+        
+        let run = let open Log in
+                  function
+                  | Silent next -> Intr.run next
+                  | Log (msg, next) -> print msg; Intr.run next
+      end
+
+      let add_logs =
+        let open Program in
+        let open Log in
+        function
+        | Greeting next ->
+           Log ("LOG: displaying greeting",
+                Greeting next)
+        | Prompt cont ->
+           Log ("LOG: displaying prompt",
+                Prompt cont)
+        | Message (msg,next) ->
+           Log ("LOG: printing message",
+                Message (msg, next))
+        | Quit next ->
+           Log ("LOG: quitting",
+                Quit next)
       
-      module Compose = struct
-        (* TODO: this code is going to need a higher order functor
-           somewhere, i.e. a functor whose input is two RUN modules
-           and whose output is a combined run of the composition *)
-        
-        module Run (Intr1 : RUN) (Intr2 : RUN) = struct
-          module Comb = Functor.Compose (Intr1) (Intr2)
-          type 'a t = 'a Intr1.t
+      module FrSimple = Make (Program)
+      module FrWithLog = Transform.ToFree (Program) (Enloggen)
 
-          let map = Comb.map
-          
-          let run = Intr1.run
-        end
-        
-        module FreeRun (Intr : RUN) = struct
-          module FR = Make (Intr)
-          type 'a t = 'a FR.t
+      (* TODO: this needs to be abstracted *)
+      (* let rec apply_nt =
+       *   let open FrWithLog in
+       *   fun nt frsimp ->
+       *   match frsimp with
+       *   | FrSimple.Pure x -> FrWithLog.Pure x
+       *   | FrSimple.Join next -> FrWithLog.Join (FrSimple.map (apply_nt nt) (nt next)) *)
 
-          let map = Intr.map
-          
-          let rec run = let open FR in
-                        function
-                        | Pure x -> x
-                        | Join next -> Intr.run next |> run
-        end
-        
-        module ToFree (Intr1 : RUN) (Intr2 : RUN) = struct
-          module Comb = Run (Intr1) (Intr2)
-          type 'a t = 'a Comb.t
-          module Fr = FreeRun (Comb)
-          
-          (* take two underlying functors w/ run functions and return
-             free monad composition of them with a run function *)
-        end
-      end
-
-      module ComposeProgLog = struct
-        module CPL = Functor.Compose (Log) (Program)
-        
-        let add_logs =
-          let open Program in
-          let open Log in
-          function
-          | Greeting next ->
-             Log ("LOG: displaying greeting",
-                  Greeting next)
-          | Prompt cont ->
-             Log ("LOG: displaying prompt",
-                  Prompt cont)
-          | Message (msg,next) ->
-             Log ("LOG: printing message",
-                  Message (msg, next))
-          | Quit next ->
-             Log ("LOG: quitting",
-                  Quit next)
-      end
-    
-
-      (* module RunMain = RunFree (LogInterpreter)
-       * 
-       * let run_with_logging fr = Interpreter.run (RunMain.augment add_logs fr) *)
+      let greeting = FrSimple.lift @@ Greeting ()
+      let prompt = FrSimple.lift @@ Prompt id
+      let message m = FrSimple.lift @@ Message (m, ())
+      let quit = FrSimple.lift @@ Quit ()
+      
+      let repl =
+        let open FrSimple in
+        let one_round =
+          let* () = message "Please type something!" in
+          let* input = prompt in
+          if input = "q"
+          then quit
+          else message (sprintf "You just typed %s!" input)
+        in
+        one_round
+      
+      let cool_program = FrSimple.(greeting >> repl)
       
     end
-  end
 
+    module DryRun = struct
+      module Program = struct
+        type 'next t =
+          | Greeting of 'next
+          | Prompt of (string -> 'next)
+          | Message of string * 'next
+          | Quit of 'next
+
+        let map f = function
+          | Greeting next -> Greeting (f next)
+          | Prompt cont -> Prompt (fun x -> cont x |> f)
+          | Message (msg, next) -> Message (msg, f next)
+          | Quit next -> Quit (f next)
+      end
+      module FProg = Make (Program)
+
+      let greeting = FProg.lift @@ Greeting ()
+      let prompt = FProg.lift @@ Prompt id
+      let message m = FProg.lift @@ Message (m, ())
+      let quit = FProg.lift @@ Quit ()
+      
+      let repl : unit FProg.t =
+        let open FProg in
+        let one_round =
+          let* () = message "Please type something!" in
+          let* input = prompt in
+          if input = "q"
+          then quit
+          else message (sprintf "You just typed %s!" input)
+        in
+        one_round
+      
+      let cool_program = FProg.(greeting >> repl)
+
+      open FProg
+      
+      let rec dry_run = function
+        | Pure next -> next
+        | Join Greeting next ->
+           print "This is where it would greet you" ;
+           dry_run next
+        | Join Prompt cont ->
+           print "This is where you would type something in" ;
+           cont "dummy value" |> dry_run
+        | Join Message (_, next) ->
+           print "This is where the program would say something to you" ;
+           dry_run next
+        | Join Quit _ -> ()
+      
+      let rec run = function
+        | Pure next -> next
+        | Join Greeting next ->
+           print "Wzup!  Type 'q' to quit." ;
+           run next
+        | Join Prompt cont ->
+           let input = input_line stdin in
+           cont input |> run
+        | Join Message (msg, next) ->
+           print msg ;
+           run next
+        | Join Quit _ ->
+           print "Bye!" ;
+           exit 0
+    end
+  end
 end
 
 module StringParserF = struct
