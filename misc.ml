@@ -104,7 +104,7 @@ module Free = struct
         val run : 'a t -> 'a
       end
 
-      module Program = struct
+      module Main = struct
         type 'next t =
           | Greeting of 'next
           | Prompt of (string -> 'next)
@@ -145,7 +145,7 @@ module Free = struct
           | Silent next -> next
           | Log (msg, next) -> print msg; next
       end
-
+      
       module Compose = struct
         (* TODO: this code is going to need a higher order functor
            somewhere, i.e. a functor whose input is two RUN modules
@@ -153,18 +153,30 @@ module Free = struct
         
         module Run (Intr1 : RUN) (Intr2 : RUN) = struct
           module Comb = Functor.Compose (Intr1) (Intr2)
-          type 'a t = 'a Comb.t
+          type 'a t = 'a Intr1.t
+
+          let map = Comb.map
           
-          (* function to run the composition goes here *)
           let run = Intr1.run
         end
         
         module FreeRun (Intr : RUN) = struct
-          (* create free monadic version of composed functor and
-             define run for it *)
+          module FR = Make (Intr)
+          type 'a t = 'a FR.t
+
+          let map = Intr.map
+          
+          let rec run = let open FR in
+                        function
+                        | Pure x -> x
+                        | Join next -> Intr.run next |> run
         end
         
         module ToFree (Intr1 : RUN) (Intr2 : RUN) = struct
+          module Comb = Run (Intr1) (Intr2)
+          type 'a t = 'a Comb.t
+          module Fr = FreeRun (Comb)
+          
           (* take two underlying functors w/ run functions and return
              free monad composition of them with a run function *)
         end
