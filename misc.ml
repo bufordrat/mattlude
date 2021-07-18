@@ -106,34 +106,25 @@ module Free = struct
                   | Silent next -> Intr.run next
                   | Log (msg, next) -> print msg; Intr.run next
       end
-
-      let add_logs =
-        let open Program in
-        let open Log in
-        function
-        | Greeting next ->
-           Log ("LOG: displaying greeting",
-                Greeting next)
-        | Prompt cont ->
-           Log ("LOG: displaying prompt",
-                Prompt cont)
-        | Message (msg,next) ->
-           Log ("LOG: printing message",
-                Message (msg, next))
-        | Quit next ->
-           Log ("LOG: quitting",
-                Quit next)
       
-      module FrSimple = Make (Program)
+      module FrSimple = Transform.FreeRun (Program)
       module FrWithLog = Transform.ToFree (Program) (Enloggen)
 
-      (* TODO: this needs to be abstracted *)
-      (* let rec apply_nt =
-       *   let open FrWithLog in
-       *   fun nt frsimp ->
-       *   match frsimp with
-       *   | FrSimple.Pure x -> FrWithLog.Pure x
-       *   | FrSimple.Join next -> FrWithLog.Join (FrSimple.map (apply_nt nt) (nt next)) *)
+      let rec add_logs =
+        function
+        | FrSimple.Pure x -> FrWithLog.Pure x
+        | FrSimple.Join Greeting next ->
+           Join (Log ("LOG: displaying greeting",
+                      Greeting (add_logs next)))
+        | FrSimple.Join Prompt cont ->
+           Join (Log ("LOG: displaying prompt",
+                      Prompt (add_logs << cont)))
+        | FrSimple.Join Message (msg, next) ->
+           Join (Log ("LOG: printing message",
+                      Message (msg, add_logs next)))
+        | FrSimple.Join Quit next ->
+                 Join (Log ("LOG: quitting",
+                            Quit (add_logs next)))
 
       let greeting = FrSimple.lift @@ Greeting ()
       let prompt = FrSimple.lift @@ Prompt id
