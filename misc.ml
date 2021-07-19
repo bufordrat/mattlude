@@ -43,17 +43,26 @@ module Free = struct
       module FR = Make (Intr)
       include FR
       
-      let rec run = let open FR in
-                    function
-                    | Pure x -> x
-                    | Join next -> Intr.run next |> run
+      let rec run = function
+        | Pure x -> x
+        | Join next -> Intr.run next |> run
     end
 
-    module ToFree (Intr : RUN) (MF : functor (R : RUN) -> RUN) = struct
-      module Combined = MF (Intr)
-      module FreeComb = FreeRun (Combined)
-      include FreeComb
-    end
+    module ToFree (Intr : RUN) (MF : functor (R : RUN) -> RUN) =
+      struct
+        module FreeIntr = Make (Intr)
+        module Combined = MF (Intr)
+        module FreeComb = FreeRun (Combined)
+        include FreeComb
+        
+        let rec apply_nt nt = function
+          | FreeIntr.Pure x -> FreeComb.Pure x
+          | FreeIntr.Join next -> FreeComb.Join begin
+                                   Combined.map
+                                     (apply_nt nt)
+                                     (nt next)
+                                 end
+      end
   end
   
   module Example = struct
@@ -112,20 +121,19 @@ module Free = struct
 
       let rec add_logs =
         function
-        | FrSimple.Pure x -> FrWithLog.Pure x
-        | FrSimple.Join Greeting next ->
-           Join (Log ("LOG: displaying greeting",
-                      Greeting (add_logs next)))
-        | FrSimple.Join Prompt cont ->
-           Join (Log ("LOG: displaying prompt",
-                      Prompt (add_logs << cont)))
-        | FrSimple.Join Message (msg, next) ->
-           Join (Log ("LOG: printing message",
-                      Message (msg, add_logs next)))
-        | FrSimple.Join Quit next ->
-                 Join (Log ("LOG: quitting",
-                            Quit (add_logs next)))
-
+        | Program.Greeting next ->
+           Log.Log ("LOG: displaying greeting",
+                    Program.Greeting next)
+        | Program.Prompt cont ->
+           Log.Log ("LOG: displaying prompt",
+                    Program.Prompt cont)
+        | Program.Message (msg, next) ->
+           Log.Log ("LOG: printing message",
+                    Program.Message (msg, next))
+        | Program.Quit next ->
+           Log.Log ("LOG: quitting",
+                    Program.Quit next)      
+      
       let greeting = FrSimple.lift @@ Greeting ()
       let prompt = FrSimple.lift @@ Prompt id
       let message m = FrSimple.lift @@ Message (m, ())
@@ -143,6 +151,13 @@ module Free = struct
         one_round
       
       let cool_program = FrSimple.(greeting >> repl)
+
+      let run = FrSimple.run
+
+      let run_with_logger prog =
+        let open FrWithLog in
+        let new_prog = apply_nt add_logs prog in
+        run new_prog
       
     end
 
