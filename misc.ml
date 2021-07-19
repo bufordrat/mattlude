@@ -742,7 +742,9 @@ type keith_or_matt_or_whatever =
   [ `Keith | `Matt ]
 
 
-
+module Julian = struct
+  let julian = "julian"
+end
 
 
       (* module LogInterpreter = struct
