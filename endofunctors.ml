@@ -106,8 +106,8 @@ module Option = struct
   (* for auto-generating monad and applicative stuff *)
   module OptionMonad = struct
     type 'a t = 'a option
-    let pure = Option.some
-    let bind = Option.(>>=)
+    let pure = some
+    let bind = (>>=)
   end
 
   include Monad.ToApplicative (OptionMonad)

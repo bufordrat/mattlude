@@ -5,6 +5,7 @@
  * Mattlude Version 1.0
  *)
 
+
 open Prelude
 open Endofunctors
 
@@ -228,7 +229,7 @@ module Free = struct
   end
 end
 
-module StringParserF = struct
+module StringParser = struct
   module PResult = Result.Make (String)
 
   module ParserMonad = struct
@@ -390,7 +391,7 @@ module Example = struct
     let is_num = function Num _ -> true | _ -> false
 
     module LexExample = struct
-      module Lexer = StringParserF 
+      module Lexer = StringParser 
                     
       let lexP =
         let open Lexer in
@@ -588,7 +589,7 @@ module Example = struct
     let mk_opexp o = Op_exp o
 
     module StringExample = struct
-      module Parser = StringParserF
+      module Parser = StringParser
 
       let ops_ranking =
         List.map Parser.any_op [
