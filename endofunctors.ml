@@ -113,13 +113,13 @@ module Option = struct
   include Monad.ToApplicative (OptionMonad)
 end
 
-module type ERROR = sig
-  type t
-end
-
 module Result = struct
   (* module functor for building a Result module with cool extra stuff
-     in it; takes a module containing the error type as an input *) 
+     in it; takes a module containing the error type as an input *)
+  module type ERROR = sig
+    type t
+  end
+
   module Make (E : ERROR) = struct
     include Stdlib.Result
     include Prelude.Result
@@ -132,5 +132,29 @@ module Result = struct
     end
     
     include Monad.ToApplicative (ResultMonad)
+  end
+end
+
+module State = struct
+  module type PURESTATE = sig
+    type t
+  end
+  
+  module Make (S : PURESTATE) = struct
+    module StateMonad = struct
+      type 'a t = S.t -> ('a * S.t)
+      let pure x state = (x, state)
+      let bind mx k state1 =
+        let ( result1, state2 ) = mx state1 in
+        k result1 @@ state2
+    end
+
+    let put value state = ((), value)
+    let get state = (state, state)
+
+    let eval mx state = mx state |> fst
+    let exec mx state = mx state |> snd
+
+    include Monad.ToApplicative (StateMonad)
   end
 end

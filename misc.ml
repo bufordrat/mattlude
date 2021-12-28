@@ -10,7 +10,7 @@ open Prelude
 open Endofunctors
 
 (** [version] is the library version metadata alist. *)
-(* let version = V.data *)
+let version = V.data
 
 module Free = struct
   module Make (F : FUNCTOR) = struct
@@ -120,7 +120,7 @@ module Free = struct
       module FrSimple = Transform.FreeRun (Program)
       module FrWithLog = Transform.ToFree (Program) (Enloggen)
 
-      let rec add_logs =
+      let add_logs =
         function
         | Program.Greeting next ->
            Log.Log ("LOG: displaying greeting",
@@ -228,128 +228,6 @@ module Free = struct
     end
   end
 end
-
-module StringParser = struct
-  module PResult = Result.Make (String)
-
-  module ParserMonad = struct
-    type 'output t =
-      string -> (('output * string), string) result
-    let pure x = fun stream -> PResult.ok (x, stream)
-    let bind prsr k = let open PResult in 
-                      fun input ->
-                      let* (result1, remainder1) = prsr input in
-                      (k result1) remainder1
-  end
-  include Monad.ToApplicative (ParserMonad)
-
-  let alternative prsr1 prsr2 input =
-    match prsr1 input with
-    | Error _ -> prsr2 input
-    | _ -> prsr1 input
-  let (<|>) = alternative
-            
-  module Combinators = struct
-
-    let succeed input = PResult.ok input
-
-    let fail _ = PResult.error "error: pfail"
-
-    let choice prsrs = List.foldl (<|>) fail prsrs
-
-    let optional prsr = prsr *> pure () <|> pure ()
-                     
-    let satisfy pred = let open String in function
-      | "" -> PResult.error "end of file"
-      | str ->
-         let head = str.[0] in
-         let tail = sub str 1 (length str - 1) in
-         if pred head
-         then PResult.ok (head, tail)
-         else PResult.error "error: satisfy"
-
-    let munch1 pred input =
-      let open String in
-      let rec span pred = function
-        | "" -> ("", "")
-        | str ->
-           let head = sub str 0 1 in
-           let recurse = sub str 1 (length str - 1) |> span pred in
-           if pred str.[0]
-           then head ^ fst recurse, snd recurse
-           else "", str
-      in
-      match span pred input with
-      | ("",_) -> PResult.error "error: span"
-      | _ -> PResult.ok (span pred input)
-
-    let eof = function
-      | "" -> PResult.ok ((), "")
-      | _ -> PResult.error "error: eof"
-    
-    let char c = satisfy (fun x -> x = c)
-
-    let string str = 
-      let concat_char strP chr =
-        let+ str = strP
-        and+ chr = char chr in
-        str ^ String.make 1 chr
-      in
-      String.foldl concat_char (pure "") str
-               
-    let parse_string prsr str =
-      match prsr str with
-      | Ok (output, []) -> Ok output
-      | Error _ as e -> e
-      | _ -> Error "partial parse"
-                
-    let rec many prsr input =
-      match prsr input with
-      | Ok _ -> (pure cons <*> prsr <*> many prsr) input
-      | Error _ -> (pure []) input
-
-    let many1 prsr = pure cons <*> prsr <*> many prsr
-
-    let sep_by1 prsr sepPrsr =
-      let+ initial = many (prsr <* sepPrsr)
-      and+ final = prsr
-      in initial @ [final]
-
-    let skip_spaces1 =
-      let is_space chr =
-        String.(mem chr whitespace)
-      in
-      pure () <* munch1 is_space
-
-    let skip_spaces = skip_spaces1 <|> pure ()
-
-    let rec sequence = function
-      | [] -> pure []
-      | x :: xs -> let+ p1 = x
-                   and+ p2 = sequence xs
-                   in cons p1 p2
-    
-    let chainl op p =
-      let rec apply_all x = function
-        | [] -> x
-        | f :: fs -> apply_all (f x) fs
-      in
-      apply_all <$> p <*> many (flip <$> op <*> p)
-   
-    let pack l prsr r = string l *> prsr <* string r
-    
-    let op (func, str) = pure func <* string str
-
-    let any_op input = (choice << List.map op) input
-      
-    let mk_expr atomic ranking left right =
-      let rec expr input = (foldr chainl factor ranking) input
-      and factor input = (atomic <|> pack left expr right) input
-      in (expr, factor)      
-  end
-  include Combinators
-end
-
                      
 module Example = struct
 
@@ -391,7 +269,7 @@ module Example = struct
     let is_num = function Num _ -> true | _ -> false
 
     module LexExample = struct
-      module Lexer = StringParser 
+      module Lexer = Parser.StringParser 
                     
       let lexP =
         let open Lexer in
@@ -535,142 +413,142 @@ module Example = struct
     open LexExample
   end
 
-  module Parse = struct
-
-    let pop = function
-      | [] -> None, []
-      | x :: xs -> Some x, xs
-    
-    module ListTok = struct
-        include List
-        type tok = Lex.lexeme
-        type stream = tok t
-        let empty = []
-        let null = function
-          | [] -> true
-          | _ -> false
-        let pop = pop
-        let re_append = append
-      end
-  
-    module SeqTok = struct
-        include Seq
-        type tok = Lex.lexeme
-        type stream = tok t
-        let null s =
-          match s () with
-          | Seq.Nil -> true
-          | Seq.Cons _ -> false
-      end
-      
-    type num = Num of int
-      
-    type binop =
-      | Plus of (exp * exp)
-      | Minus of (exp * exp)
-      | Times of (exp * exp)
-      | Div of (exp * exp)
-  
-    and exp =
-      | Num_exp of num
-      | Op_exp of binop
-  
-    let mk_plus exp1 exp2 = Plus (exp1, exp2)
-    let mk_minus exp1 exp2 = Minus (exp1, exp2)
-    let mk_times exp1 exp2 = Times (exp1, exp2)
-    let mk_div exp1 exp2 = Div (exp1, exp2)
-
-    let mk_eplus exp1 exp2 = Op_exp (mk_plus exp1 exp2)
-    let mk_eminus exp1 exp2 = Op_exp (mk_minus exp1 exp2)
-    let mk_etimes exp1 exp2 = Op_exp (mk_times exp1 exp2)
-    let mk_ediv exp1 exp2 = Op_exp (mk_div exp1 exp2)
-
-    let mk_numexp n = Num_exp n
-    let mk_opexp o = Op_exp o
-
-    module StringExample = struct
-      module Parser = StringParser
-
-      let ops_ranking =
-        List.map Parser.any_op [
-            [(mk_eminus, "-")] ;
-            [(mk_eplus, "+")] ;
-            [(mk_ediv, "/")] ;
-            [(mk_etimes, "*")] ;
-          ]
-      
-      let skip_spaces = Parser.skip_spaces
-
-      let numP =
-        let open Parser in
-        let mk_num n = Num n
-        in let+ c = satisfy Char.Decimal.is
-           in mk_num @@ (int_of_string << String.make 1) c
-
-      let enumP = Parser.map mk_numexp numP
-           
-      let (expr,_) =
-        Parser.mk_expr enumP ops_ranking "(" ")"
-      
-    end
-    
-    module P = Parser.Make (ListTok) (ListTok)
-
-    (* let ops_ranking =
-     *   List.map P.any_op [
-     *       [(mk_eminus, [Lex.Minus])] ;
-     *       [(mk_eplus, [Lex.Plus])] ;
-     *       [(mk_ediv, [Lex.Div])] ;
-     *       [(mk_etimes, [Lex.Times])] ;
-     *     ] *)
-    
-    (* let skip_spaces =
-     *   let open P in
-     *   optional (satisfy Lex.is_space)
-     *               
-     * let enumP =
-     *   let open P in
-     *   let mk_num = function
-     *     | Lex.Num n -> Num_exp (Num n)
-     *     | _ -> assert false
-     *   in
-     *   let+ lexeme = satisfy Lex.is_num
-     *   in mk_num lexeme
-     * 
-     * let (expP,_) =
-     *   let open P in
-     *   let open Lex in
-     *   mk_expr enumP ops_ranking [LParen] [RParen] *)
-    
-    (* let rec binopP input =
-     *   let open P in
-     *   let open Lex in
-     *   let op prsr pred =
-     *       pure prsr
-     *       <* (satisfy is_lparen)
-     *       <* skip_spaces
-     *       <*> expP
-     *       <* skip_spaces
-     *       <* (satisfy pred)
-     *       <* skip_spaces
-     *       <*> expP
-     *       <* skip_spaces
-     *       <* (satisfy is_rparen)
-     *   in
-     *   choice [
-     *       op mk_plus is_plus ;
-     *       op mk_minus is_minus ;
-     *       op mk_times is_times ;
-     *       op mk_div is_div ;
-     *     ] @@ input
-     *   
-     * and expP input =
-     *   let open P in
-     *   choice [
-     *       pure mk_numexp <*> numP ;
-     *       pure mk_opexp <*> binopP ;
-     *     ] @@ input *)
-  end
+  (* module Parse = struct
+   * 
+   *   let pop = function
+   *     | [] -> None, []
+   *     | x :: xs -> Some x, xs
+   *   
+   *   module ListTok = struct
+   *       include List
+   *       type tok = Lex.lexeme
+   *       type stream = tok t
+   *       let empty = []
+   *       let null = function
+   *         | [] -> true
+   *         | _ -> false
+   *       let pop = pop
+   *       let re_append = append
+   *     end
+   * 
+   *   module SeqTok = struct
+   *       include Seq
+   *       type tok = Lex.lexeme
+   *       type stream = tok t
+   *       let null s =
+   *         match s () with
+   *         | Seq.Nil -> true
+   *         | Seq.Cons _ -> false
+   *     end
+   *     
+   *   type num = Num of int
+   *     
+   *   type binop =
+   *     | Plus of (exp * exp)
+   *     | Minus of (exp * exp)
+   *     | Times of (exp * exp)
+   *     | Div of (exp * exp)
+   * 
+   *   and exp =
+   *     | Num_exp of num
+   *     | Op_exp of binop
+   * 
+   *   let mk_plus exp1 exp2 = Plus (exp1, exp2)
+   *   let mk_minus exp1 exp2 = Minus (exp1, exp2)
+   *   let mk_times exp1 exp2 = Times (exp1, exp2)
+   *   let mk_div exp1 exp2 = Div (exp1, exp2)
+   * 
+   *   let mk_eplus exp1 exp2 = Op_exp (mk_plus exp1 exp2)
+   *   let mk_eminus exp1 exp2 = Op_exp (mk_minus exp1 exp2)
+   *   let mk_etimes exp1 exp2 = Op_exp (mk_times exp1 exp2)
+   *   let mk_ediv exp1 exp2 = Op_exp (mk_div exp1 exp2)
+   * 
+   *   let mk_numexp n = Num_exp n
+   *   let mk_opexp o = Op_exp o
+   * 
+   *   module StringExample = struct
+   *     module Parser = StringParser
+   * 
+   *     let ops_ranking =
+   *       List.map Parser.any_op [
+   *           [(mk_eminus, "-")] ;
+   *           [(mk_eplus, "+")] ;
+   *           [(mk_ediv, "/")] ;
+   *           [(mk_etimes, "*")] ;
+   *         ]
+   *     
+   *     let skip_spaces = Parser.skip_spaces
+   * 
+   *     let numP =
+   *       let open Parser in
+   *       let mk_num n = Num n
+   *       in let+ c = satisfy Char.Decimal.is
+   *          in mk_num @@ (int_of_string << String.make 1) c
+   * 
+   *     let enumP = Parser.map mk_numexp numP
+   *          
+   *     let (expr,_) =
+   *       Parser.mk_expr enumP ops_ranking "(" ")"
+   *     
+   *   end
+   *   
+   *   module P = Parser.Make (ListTok) (ListTok)
+   * 
+   *   let ops_ranking =
+   *     List.map P.any_op [
+   *         [(mk_eminus, [Lex.Minus])] ;
+   *         [(mk_eplus, [Lex.Plus])] ;
+   *         [(mk_ediv, [Lex.Div])] ;
+   *         [(mk_etimes, [Lex.Times])] ;
+   *       ]
+   *   
+   *   let skip_spaces =
+   *     let open P in
+   *     optional (satisfy Lex.is_space)
+   *                 
+   *   let enumP =
+   *     let open P in
+   *     let mk_num = function
+   *       | Lex.Num n -> Num_exp (Num n)
+   *       | _ -> assert false
+   *     in
+   *     let+ lexeme = satisfy Lex.is_num
+   *     in mk_num lexeme
+   *   
+   *   let (expP,_) =
+   *     let open P in
+   *     let open Lex in
+   *     mk_expr enumP ops_ranking [LParen] [RParen]
+   *   
+   *   let rec binopP input =
+   *     let open P in
+   *     let open Lex in
+   *     let op prsr pred =
+   *         pure prsr
+   *         <* (satisfy is_lparen)
+   *         <* skip_spaces
+   *         <*> expP
+   *         <* skip_spaces
+   *         <* (satisfy pred)
+   *         <* skip_spaces
+   *         <*> expP
+   *         <* skip_spaces
+   *         <* (satisfy is_rparen)
+   *     in
+   *     choice [
+   *         op mk_plus is_plus ;
+   *         op mk_minus is_minus ;
+   *         op mk_times is_times ;
+   *         op mk_div is_div ;
+   *       ] @@ input
+   *     
+   *   and expP input =
+   *     let open P in
+   *     choice [
+   *         pure mk_numexp <*> numP ;
+   *         pure mk_opexp <*> binopP ;
+   *       ] @@ input
+   * end *)
 end
 
 module type PEEKABLE = sig
