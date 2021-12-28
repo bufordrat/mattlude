@@ -285,6 +285,7 @@ module Example = struct
           let+ numstring = munch1 (Char.Decimal.is)
           in mk_num numstring
         in
+        let skip_spaces1 = spaces1 in
         let spaceP = pure Space <* skip_spaces1 in
         choice [ lparenP; rparenP; opP; numP; spaceP ]
         

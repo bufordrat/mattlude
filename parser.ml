@@ -25,9 +25,9 @@ module StringParser = struct
 
     let succeed input = PResult.ok input
 
-    let fail _ = PResult.error "error: pfail"
+    let fail msg _ = PResult.error msg
 
-    let choice prsrs = List.foldl (<|>) fail prsrs
+    let choice prsrs = List.foldl (<|>) (fail "choice") prsrs
 
     let optional prsr = prsr *> pure () <|> pure ()
                      
@@ -71,9 +71,8 @@ module StringParser = struct
                
     let parse_string prsr str =
       match prsr str with
-      | Ok (output, []) -> Ok output
+      | Ok (output, _) -> Ok output
       | Error _ as e -> e
-      | _ -> Error "partial parse"
                 
     let rec many prsr input =
       match prsr input with
@@ -82,18 +81,30 @@ module StringParser = struct
 
     let many1 prsr = pure cons <*> prsr <*> many prsr
 
-    let sep_by1 prsr sepPrsr =
-      let+ initial = many (prsr <* sepPrsr)
-      and+ final = prsr
-      in initial @ [final]
+    let negate_parser prsr msg input =
+      match prsr input with
+      | Error _ -> pure () @@ input
+      | _ -> fail msg @@ input
 
-    let skip_spaces1 =
-      let is_space chr =
-        String.(mem chr whitespace)
+    let sep_by1 prsr sep =
+      let msg = "error: too many separators" in
+      let a_bunch = 
+        let+ initials = many1 (prsr <* sep)
+        and+ final = prsr in
+        initials @ [final]
       in
-      pure () <* munch1 is_space
+      let just_one =
+        let+ final = prsr <* negate_parser sep msg in
+        [final]
+      in
+      a_bunch <|> just_one
 
-    let skip_spaces = skip_spaces1 <|> pure ()
+    let is_space chr =
+      String.(mem chr whitespace)
+       
+    let spaces = many1 @@ satisfy @@ is_space
+
+    let spaces1 = satisfy is_space <* spaces
 
     let rec sequence = function
       | [] -> pure []
