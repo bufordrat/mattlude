@@ -2,11 +2,19 @@ open Prelude
 open Endofunctors
 
 module StringParser = struct
-  module PResult = Result.Make (String)
+
+  module Error = struct
+    type t = {
+        msg : string ;
+        remainder : string ;
+      }
+  end
+               
+  module PResult = Result.Make (Error)
 
   module ParserMonad = struct
     type 'output t =
-      string -> (('output * string), string) result
+      string -> (('output * string), Error.t) result
     let pure x = fun stream -> PResult.ok (x, stream)
     let bind prsr k = let open PResult in 
                       fun input ->
@@ -20,25 +28,37 @@ module StringParser = struct
     | Error _ -> prsr2 input
     | _ -> prsr1 input
   let (<|>) = alternative
+
+  let consumes_input prsr input
+    = snd (prsr input) <> input
             
   module Combinators = struct
 
     let succeed input = PResult.ok input
 
-    let fail msg _ = PResult.error msg
+    let fail msg remainder =
+      PResult.error Error.{ msg ; remainder }
 
     let choice prsrs = List.foldl (<|>) (fail "choice") prsrs
 
     let optional prsr = prsr *> pure () <|> pure ()
                      
-    let satisfy pred = let open String in function
-      | "" -> PResult.error "end of file"
+    let satisfy pred =
+      let open String in
+      function
+      | "" -> let msg = "end of file" in
+              let remainder = "" in
+              PResult.error Error.{ msg ; remainder }
       | str ->
          let head = str.[0] in
          let tail = sub str 1 (length str - 1) in
+         let msg =
+           sprintf "predicate satisfy: got: %c" head
+         in
+         let remainder = str in
          if pred head
          then PResult.ok (head, tail)
-         else PResult.error "error: satisfy"
+         else PResult.error Error.{ msg ; remainder }
 
     let munch1 pred input =
       let open String in
@@ -46,18 +66,28 @@ module StringParser = struct
         | "" -> ("", "")
         | str ->
            let head = sub str 0 1 in
-           let recurse = sub str 1 (length str - 1) |> span pred in
+           let recurse = sub str 1 (length str - 1)
+                         |> span pred
+           in
            if pred str.[0]
            then head ^ fst recurse, snd recurse
            else "", str
       in
       match span pred input with
-      | ("",_) -> PResult.error "error: span"
-      | _ -> PResult.ok (span pred input)
+      | ("",_) -> let msg = "predicate satisfy: got: EOF" in
+                  let remainder = input in
+                  PResult.error Error.{ msg ; remainder }
+      | _ ->
+         PResult.ok (span pred input)
 
     let eof = function
       | "" -> PResult.ok ((), "")
-      | _ -> PResult.error "error: eof"
+      | other ->
+         let msg =
+           sprintf "expected: EOF got: %c" other.[0]
+         in
+         let remainder = other in
+         PResult.error Error.{ msg ; remainder }
     
     let char c = satisfy (fun x -> x = c)
 
@@ -71,8 +101,8 @@ module StringParser = struct
                
     let parse_string prsr str =
       match prsr str with
-      | Ok (output, _) -> Ok output
-      | Error _ as e -> e
+      | Ok (output, _) -> PResult.ok output
+      | Error e -> assert false
                 
     let rec many prsr input =
       match prsr input with

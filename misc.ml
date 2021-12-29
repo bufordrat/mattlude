@@ -271,29 +271,29 @@ module Example = struct
     module LexExample = struct
       module Lexer = Parser.StringParser 
                     
-      let lexP =
-        let open Lexer in
-        let lparenP = pure LParen <* satisfy (eq '(') in
-        let rparenP = pure RParen <* satisfy (eq ')') in
-        let opP = 
-          let is_op_chr chr = String.mem chr "+*/-" in
-          let+ op_chr = satisfy is_op_chr
-          in char_to_binop op_chr
-        in
-        let numP =
-          let mk_num str = Num (int_of_string str) in
-          let+ numstring = munch1 (Char.Decimal.is)
-          in mk_num numstring
-        in
-        let skip_spaces1 = spaces1 in
-        let spaceP = pure Space <* skip_spaces1 in
-        choice [ lparenP; rparenP; opP; numP; spaceP ]
-        
-      let lex str =
-        match Lexer.many1 lexP str with
-        | Ok (lst, "") -> Ok lst
-        | Ok (_, _) -> Error "lexing error"
-        | Error e -> Error e
+      (* let lexP =
+       *   let open Lexer in
+       *   let lparenP = pure LParen <* satisfy (eq '(') in
+       *   let rparenP = pure RParen <* satisfy (eq ')') in
+       *   let opP = 
+       *     let is_op_chr chr = String.mem chr "+*/-" in
+       *     let+ op_chr = satisfy is_op_chr
+       *     in char_to_binop op_chr
+       *   in
+       *   let numP =
+       *     let mk_num str = Num (int_of_string str) in
+       *     let+ numstring = munch1 (Char.Decimal.is)
+       *     in mk_num numstring
+       *   in
+       *   let skip_spaces1 = spaces1 in
+       *   let spaceP = pure Space <* skip_spaces1 in
+       *   choice [ lparenP; rparenP; opP; numP; spaceP ]
+       *   
+       * let lex str =
+       *   match Lexer.many1 lexP str with
+       *   | Ok (lst, "") -> Ok lst
+       *   | Ok (_, _) -> Error "lexing error"
+       *   | Error e -> Error e *)
     end
 
     module SeqExample = struct

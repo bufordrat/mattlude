@@ -1,9 +1,13 @@
 open Prelude
 
-module type MONOID = sig
+module type SEMIGROUP = sig
   type 'a t
-  val empty : 'a t
   val append : 'a t -> 'a t -> 'a t
+end
+   
+module type MONOID = sig
+  include SEMIGROUP
+  val empty : 'a t
 end
 
 module type FOLDABLE = sig
@@ -94,20 +98,23 @@ module type MONAD = Monad.MONAD
          
 (* helper functions for optional values *)
 module Option = struct
-
-  (* unwraps the Somes; throws the None-s out *)
   include Stdlib.Option
   include Prelude.Option
-  let rec cat_options = function
-    | [] -> []
-    | Some x :: xs -> x :: cat_options xs
-    | None :: xs -> cat_options xs
+
+  (* unwraps the Somes; throws the None-s out *)
+  let cat_options lst =
+    let rec cat_options' acc = function
+      | [] -> acc
+      | Some x :: xs -> cat_options' (x :: acc) xs
+      | None :: xs -> cat_options' acc xs
+    in
+    List.rev @@ cat_options' [] lst
 
   (* for auto-generating monad and applicative stuff *)
   module OptionMonad = struct
     type 'a t = 'a option
     let pure = some
-    let bind = (>>=)
+    let bind = bind
   end
 
   include Monad.ToApplicative (OptionMonad)
@@ -128,7 +135,7 @@ module Result = struct
     module ResultMonad = struct
       type 'a t = ('a, E.t) result
       let pure = Result.ok
-      let bind = Result.(>>=)
+      let bind = Result.bind
     end
     
     include Monad.ToApplicative (ResultMonad)
