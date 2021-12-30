@@ -156,7 +156,7 @@ module State = struct
         k result1 @@ state2
     end
 
-    let put value state = ((), value)
+    let put value _ = ((), value)
     let get state = (state, state)
 
     let eval mx state = mx state |> fst

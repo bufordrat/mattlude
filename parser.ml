@@ -21,7 +21,7 @@ module StringParser = struct
       let (mresult1, remainder1) = prsr input in
       match mresult1 with
       | Ok value -> (k value) remainder1
-      | Error e as err -> (err, remainder1)
+      | Error _ as err -> (err, remainder1)
   end
   include Monad.ToApplicative (ParserMonad)
 
@@ -48,39 +48,19 @@ module StringParser = struct
     let satisfy pred =
       let open String in
       function
-      | "" -> let msg = "end of file" in
+      | "" -> let msg = "satisfy: got: EOF" in
               let remainder = "" in
               (PResult.error msg, remainder)
       | str ->
          let head = str.[0] in
          let tail = sub str 1 (length str - 1) in
          let msg =
-           sprintf "predicate satisfy: got: %c" head
+           sprintf "satisfy: got: %c" head
          in
          let remainder = str in
          if pred head
          then (PResult.ok head, tail)
          else (PResult.error msg, remainder)
-
-    (* let munch1 pred input =
-     *   let open String in
-     *   let rec span pred = function
-     *     | "" -> ("", "")
-     *     | str ->
-     *        let head = sub str 0 1 in
-     *        let recurse = sub str 1 (length str - 1)
-     *                      |> span pred
-     *        in
-     *        if pred str.[0]
-     *        then head ^ fst recurse, snd recurse
-     *        else "", str
-     *   in
-     *   match span pred input with
-     *   | ("",_) -> let msg = "predicate satisfy: got: EOF" in
-     *               let remainder = input in
-     *               PResult.error Error.{ msg ; remainder }
-     *   | _ ->
-     *      PResult.ok (span pred input) *)
 
     let eof = function
       | "" -> (PResult.ok (), "")
@@ -104,7 +84,10 @@ module StringParser = struct
     let parse_string prsr str =
       match prsr str with
       | Ok output, _ -> PResult.ok output
-      | Error e, _ -> assert false
+      | Error e, remainder ->
+         let column = String.(length str - length remainder + 1) in
+         let col_msg = sprintf "Column: %i " column in
+         PResult.error (col_msg ^ e)
                 
     let rec many prsr input =
       match prsr input with
@@ -115,7 +98,7 @@ module StringParser = struct
 
     let negate_parser prsr msg input =
       match prsr input with
-      | Error _ -> pure () @@ input
+      | Error _, _ -> pure () @@ input
       | _ -> fail msg @@ input
 
     let sep_by1 prsr sep =
