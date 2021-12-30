@@ -14,30 +14,32 @@ module StringParser = struct
 
   module ParserMonad = struct
     type 'output t =
-      string -> (('output * string), Error.t) result
-    let pure x = fun stream -> PResult.ok (x, stream)
-    let bind prsr k = let open PResult in 
-                      fun input ->
-                      let* (result1, remainder1) = prsr input in
-                      (k result1) remainder1
+      string -> (('output, string) result * string)
+    let pure x input = (PResult.ok x, input)
+    let bind prsr k input =
+      let open PResult in 
+      let (mresult1, remainder1) = prsr input in
+      match mresult1 with
+      | Ok value -> (k value) remainder1
+      | Error e as err -> (err, remainder1)
   end
   include Monad.ToApplicative (ParserMonad)
 
   let alternative prsr1 prsr2 input =
     match prsr1 input with
-    | Error _ -> prsr2 input
+    | Error _, _ -> prsr2 input
     | _ -> prsr1 input
   let (<|>) = alternative
 
-  let consumes_input prsr input
-    = snd (prsr input) <> input
+  (* let consumes_input prsr input
+   *   = snd (prsr input) <> input *)
             
   module Combinators = struct
 
     let succeed input = PResult.ok input
 
     let fail msg remainder =
-      PResult.error Error.{ msg ; remainder }
+      (PResult.error msg, remainder) 
 
     let choice prsrs = List.foldl (<|>) (fail "choice") prsrs
 
@@ -48,7 +50,7 @@ module StringParser = struct
       function
       | "" -> let msg = "end of file" in
               let remainder = "" in
-              PResult.error Error.{ msg ; remainder }
+              (PResult.error msg, remainder)
       | str ->
          let head = str.[0] in
          let tail = sub str 1 (length str - 1) in
@@ -57,37 +59,37 @@ module StringParser = struct
          in
          let remainder = str in
          if pred head
-         then PResult.ok (head, tail)
-         else PResult.error Error.{ msg ; remainder }
+         then (PResult.ok head, tail)
+         else (PResult.error msg, remainder)
 
-    let munch1 pred input =
-      let open String in
-      let rec span pred = function
-        | "" -> ("", "")
-        | str ->
-           let head = sub str 0 1 in
-           let recurse = sub str 1 (length str - 1)
-                         |> span pred
-           in
-           if pred str.[0]
-           then head ^ fst recurse, snd recurse
-           else "", str
-      in
-      match span pred input with
-      | ("",_) -> let msg = "predicate satisfy: got: EOF" in
-                  let remainder = input in
-                  PResult.error Error.{ msg ; remainder }
-      | _ ->
-         PResult.ok (span pred input)
+    (* let munch1 pred input =
+     *   let open String in
+     *   let rec span pred = function
+     *     | "" -> ("", "")
+     *     | str ->
+     *        let head = sub str 0 1 in
+     *        let recurse = sub str 1 (length str - 1)
+     *                      |> span pred
+     *        in
+     *        if pred str.[0]
+     *        then head ^ fst recurse, snd recurse
+     *        else "", str
+     *   in
+     *   match span pred input with
+     *   | ("",_) -> let msg = "predicate satisfy: got: EOF" in
+     *               let remainder = input in
+     *               PResult.error Error.{ msg ; remainder }
+     *   | _ ->
+     *      PResult.ok (span pred input) *)
 
     let eof = function
-      | "" -> PResult.ok ((), "")
+      | "" -> (PResult.ok (), "")
       | other ->
          let msg =
            sprintf "expected: EOF got: %c" other.[0]
          in
          let remainder = other in
-         PResult.error Error.{ msg ; remainder }
+         (PResult.error msg , remainder)
     
     let char c = satisfy (fun x -> x = c)
 
@@ -101,13 +103,13 @@ module StringParser = struct
                
     let parse_string prsr str =
       match prsr str with
-      | Ok (output, _) -> PResult.ok output
-      | Error e -> assert false
+      | Ok output, _ -> PResult.ok output
+      | Error e, _ -> assert false
                 
     let rec many prsr input =
       match prsr input with
-      | Ok _ -> (pure cons <*> prsr <*> many prsr) input
-      | Error _ -> (pure []) input
+      | Ok _, _ -> (pure cons <*> prsr <*> many prsr) input
+      | Error _, _ -> (pure []) input
 
     let many1 prsr = pure cons <*> prsr <*> many prsr
 
