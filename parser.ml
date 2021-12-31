@@ -149,7 +149,7 @@ module StringParser = struct
       in (expr, factor)
 
     module RunParser = struct
-      let compute_lines size str =
+      let compute_line size str =
         let open String in
         let fragment = take size str in
         let reducer count chr =
@@ -158,15 +158,24 @@ module StringParser = struct
           else count
         in
         foldl reducer 1 fragment
-      
+
+      let trim_lines str =
+        let open String in
+        let non_newline c = c <> '\n' in
+        takewhile non_newline (rev str) |> rev
+        
       let parse_string prsr str =
         match prsr str with
         | Ok output, _ -> PResult.ok output
         | Error e, remainder ->
            let offset = String.(length str - length remainder) in
-           let line = compute_lines offset str in
+           let line = compute_line offset str in
            let line_msg = sprintf "Line: %i " line in
-           let col_msg = sprintf "Column: %i " (offset + 1) in
+           let col =
+             let open String in
+             (length @@ take offset @@ trim_lines str) + 1
+           in
+           let col_msg = sprintf "Column: %i " col in
            PResult.error (line_msg ^ col_msg ^ e)
     end
     include RunParser
