@@ -45,17 +45,26 @@ module StringParser = struct
 
     let optional prsr = prsr *> pure () <|> pure ()
                      
-    let satisfy pred =
+    let satisfy ?(msg_override = "") pred =
       let open String in
+      let compute_override ?(got = "EOF") msg =
+        if msg = ""
+        then sprintf "satisfy: got: %s" got
+        else sprintf "expected: %s got: %s" msg got
+      in
       function
-      | "" -> let msg = "satisfy: got: EOF" in
-              let remainder = "" in
-              (PResult.error msg, remainder)
+      | "" ->
+         let msg =
+           compute_override msg_override
+         in
+         let remainder = "" in
+         (PResult.error msg, remainder)
       | str ->
          let head = str.[0] in
+         let got = sub str 0 1 in
          let tail = sub str 1 (length str - 1) in
          let msg =
-           sprintf "satisfy: got: %c" head
+           compute_override ~got:got msg_override
          in
          let remainder = str in
          if pred head
@@ -71,7 +80,9 @@ module StringParser = struct
          let remainder = other in
          (PResult.error msg , remainder)
     
-    let char c = satisfy (fun x -> x = c)
+    let char c =
+      let msg = String.make 1 c in
+      satisfy ~msg_override:msg (fun x -> x = c)
 
     let string str = 
       let concat_char strP chr =
@@ -80,15 +91,7 @@ module StringParser = struct
         str ^ String.make 1 chr
       in
       String.foldl concat_char (pure "") str
-               
-    let parse_string prsr str =
-      match prsr str with
-      | Ok output, _ -> PResult.ok output
-      | Error e, remainder ->
-         let column = String.(length str - length remainder + 1) in
-         let col_msg = sprintf "Column: %i " column in
-         PResult.error (col_msg ^ e)
-                
+
     let rec many prsr input =
       match prsr input with
       | Ok _, _ -> (pure cons <*> prsr <*> many prsr) input
@@ -143,7 +146,30 @@ module StringParser = struct
     let mk_expr atomic ranking left right =
       let rec expr input = (foldr chainl factor ranking) input
       and factor input = (atomic <|> pack left expr right) input
-      in (expr, factor)      
+      in (expr, factor)
+
+    module RunParser = struct
+      let compute_lines size str =
+        let open String in
+        let fragment = take size str in
+        let reducer count chr =
+          if chr == '\n'
+          then count + 1
+          else count
+        in
+        foldl reducer 1 fragment
+      
+      let parse_string prsr str =
+        match prsr str with
+        | Ok output, _ -> PResult.ok output
+        | Error e, remainder ->
+           let offset = String.(length str - length remainder) in
+           let line = compute_lines offset str in
+           let line_msg = sprintf "Line: %i " line in
+           let col_msg = sprintf "Column: %i " (offset + 1) in
+           PResult.error (line_msg ^ col_msg ^ e)
+    end
+    include RunParser
   end
   include Combinators
 end
