@@ -5,13 +5,8 @@
 (library
  (name mattlude)
  (public_name mattlude)
- (libraries prelude versioj)
+ (libraries prelude)
  (inline_tests (backend qtest.lib)))
-
-(rule
- (targets v.ml)
- (mode promote-until-clean)             ; copies v.ml from _build to the source tree, clean deletes
- (action (system "versioj %{targets} || echo 'let data = []' > %{targets}")))
 
 (env
   (dev                                  ; make warnings non-fatal

@@ -1,9 +1,0 @@
-* TODO ComposeRun : functor (Intr1 : RUN) -> (Intr2 : RUN) -> RUN
-  + takes two underlying functors with run functions, and outputs a run for
-    their composition
-* TODO RunFree : functor (Intr : RUN) -> RUN
-  + takes an underlying (composed) functor with a run function and outputs a
-    free monad version of it with a fun function
-* TODO ComposeFree : functor (Intr1 : RUN) -> (Intr2 : RUN) -> RUN
-  + takes two underlying functors with fun functions and outputs a free monad
-    compoisition of them with a run function

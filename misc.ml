@@ -9,8 +9,6 @@
 open Prelude
 open Endofunctors
 
-(** [version] is the library version metadata alist. *)
-let version = V.data
 
 module Free = struct
   module Make (F : FUNCTOR) = struct

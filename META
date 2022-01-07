@@ -1,9 +1,0 @@
-# THIS FILE IS AUTOMAGICALLY GENERATED, DO NOT EDIT
-description = "does something"
-archive(byte) = "mattlude.cma"
-archive(byte, plugin) = "mattlude.cma"
-archive(native) = "mattlude.cmxa"
-archive(native, plugin) = "mattlude.cmxs"
-exists_if = "mattlude.cma"
-version = "edcd38943f0308fecdaadf644b079129aaa2bbcf"
-requires =""

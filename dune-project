@@ -1,6 +1,8 @@
-(lang dune 2.7)
+(lang dune 2.9)
 (name mattlude)
 (generate_opam_files true)
 
-(authors "Matt Teichman")
-(maintainers "teichman@uchicago.edu")
+(package
+ (name mattlude)
+ (synopsis "matt")
+ (description "matt"))
