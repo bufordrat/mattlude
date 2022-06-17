@@ -31,8 +31,8 @@ module StringParser = struct
     | _ -> prsr1 input
   let (<|>) = alternative
 
-  (* let consumes_input prsr input
-   *   = snd (prsr input) <> input *)
+  let consumes_input prsr input
+    = snd (prsr input) <> input
             
   module Combinators = struct
 
