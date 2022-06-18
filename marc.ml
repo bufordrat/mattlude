@@ -2,8 +2,7 @@ open Prelude
 
 module SaferStdLib = struct
   let slice starting ending =
-    let open String in
-    drop starting << take ending
+    String.(drop starting << take ending)
 
   let string_to_int str =
     Result.trapc
