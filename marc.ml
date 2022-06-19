@@ -82,11 +82,11 @@ module Table = struct
       let* p = string_to_int pos_str in
       let body = String.drop bpos marc in
       let looked_up = slice p (p + l) body in 
-      let* output = match subfield with
+      let+ output = match subfield with
         | None -> pure (looked_up)
         | Some s -> lookup_sub s looked_up
       in
-      pure (trim output)
+      trim output
 
     let lookup field ?(subfield=None) marc =
       lookup_res field ~subfield:subfield marc
