@@ -20,7 +20,7 @@ module type TABLE = sig
   type field
   type subfield
   type error
-  val lookup : field -> subfield -> t -> (string, error) result
+  (* val lookup : field -> ?subfield:char option -> t -> string option *)
 end
 
 module Table = struct
@@ -61,14 +61,36 @@ module Table = struct
       let+ raw = raw_directory table
       in directory' raw
 
-    let lookup field _ marc =
+    let trim = String.trim " \n\t\r\031\030"
+
+    let lookup_sub chr str =
+      let lst = String.split ~sep:"\031" str in
+      let starts_with chr str = str.[0] = chr in
+      let reducer res str =
+        if starts_with chr str
+        then Ok (String.drop 1 str)
+        else res
+      in
+      let key_error = Error "subfield key error" in
+      foldl reducer key_error lst
+
+    let lookup_res field ?(subfield=None) marc =
       let* bpos = base_pos marc in
       let* dir = directory marc in
       let* l_str, pos_str = assoc_res field dir in
       let* l = string_to_int l_str in
       let* p = string_to_int pos_str in
       let body = String.drop bpos marc in
-      pure (slice p (p + l) body)
+      let looked_up = slice p (p + l) body in 
+      let* output = match subfield with
+        | None -> pure (looked_up)
+        | Some s -> lookup_sub s looked_up
+      in
+      pure (trim output)
+
+    let lookup field ?(subfield=None) marc =
+      lookup_res field ~subfield:subfield marc
+      |> Result.to_option
   end
 
   let lookup = FakeSeek.lookup
