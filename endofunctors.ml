@@ -179,7 +179,7 @@ module List = struct
 
   module Traverse = struct
     module Make (M : MONAD) = struct
-      include Monad.ToApplicative (M)
+      open Monad.ToApplicative (M)
       let rec sequence = function
         | [] -> M.pure []
         | mx :: mxs ->
