@@ -165,3 +165,28 @@ module State = struct
     include Monad.ToApplicative (StateMonad)
   end
 end
+
+module List = struct
+  include Prelude.List
+  include Stdlib.List
+
+  module ListMonad = struct
+    type 'a t = 'a list
+    let pure x = x :: []
+    let bind mx k = flatten (map k mx)
+  end
+  include Monad.ToApplicative (ListMonad)
+
+  module Traverse = struct
+    module Make (M : MONAD) = struct
+      include Monad.ToApplicative (M)
+      let rec sequence = function
+        | [] -> M.pure []
+        | mx :: mxs ->
+           let+ x = mx 
+           and+ xs = sequence mxs in
+           x :: xs
+      let traverse f xs = sequence (List.map f xs)
+    end
+  end
+end
