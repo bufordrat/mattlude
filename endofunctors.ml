@@ -115,12 +115,13 @@ module List = struct
   module Traverse = struct
     module Make (M : MONAD) = struct
       open Monad.ToApplicative (M)
-      let rec sequence = function
-        | [] -> M.pure []
-        | mx :: mxs ->
-           let+ x = mx 
-           and+ xs = sequence mxs in
-           x :: xs
+      let sequence lst =
+        let reducer acc mx =
+          let+ x = mx
+          and+ xs = acc
+          in x :: xs
+        in
+        foldl reducer (M.pure []) lst >>| rev
       let traverse f xs = sequence (List.map f xs)
     end
   end
