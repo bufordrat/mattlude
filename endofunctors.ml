@@ -23,10 +23,10 @@ module Functor = struct
   end
   
   module Goodies (F : FUNCTOR) = struct
-    let (let+) x f = F.map f x
-    let (>>|) = (let+)
-    let (<&>) = (let+)
-    let (>|=) = (let+)
+    let ( let+ ) x f = F.map f x
+    let (>>|) = ( let+ )
+    let (<&>) = ( let+ )
+    let (>|=) = ( let+ )
     let (<$>) = F.map
   end
 
@@ -95,6 +95,34 @@ module Monad = struct
     end
 end
 module type MONAD = Monad.MONAD
+
+module List = struct
+  include Prelude.List
+  include Stdlib.List
+
+  module ListMonad = struct
+    type 'a t = 'a list
+    let pure x = x :: []
+    let bind mx k = flatten (map k mx)
+  end
+
+  module Traverse = struct
+    module Make (M : MONAD) = struct
+      open Monad.ToApplicative (M)
+      let rec sequence = function
+        | [] -> M.pure []
+        | mx :: mxs ->
+           let+ x = mx 
+           and+ xs = sequence mxs in
+           x :: xs
+      let traverse f xs = sequence (List.map f xs)
+    end
+  end
+                  
+  include ListMonad
+  include Monad.ToApplicative (ListMonad)
+  include Traverse.Make (ListMonad)
+end
          
 (* helper functions for optional values *)
 module Option = struct
@@ -119,6 +147,7 @@ module Option = struct
 
   include OptionMonad
   include Monad.ToApplicative (OptionMonad)
+  include List.Traverse.Make (OptionMonad)
 end
 
 module Result = struct
@@ -141,6 +170,7 @@ module Result = struct
 
     (* TODO: figure out why including ResultMonad here breaks my broken parser *)
     include Monad.ToApplicative (ResultMonad)
+    include List.Traverse.Make (ResultMonad)
   end
 end
 
@@ -160,6 +190,7 @@ module State = struct
 
     include StateMonad
     include Monad.ToApplicative (StateMonad)
+    include List.Traverse.Make (StateMonad)
 
     let put value _ = ((), value)
     let get state = (state, state)
@@ -169,29 +200,4 @@ module State = struct
   end
 end
 
-module List = struct
-  include Prelude.List
-  include Stdlib.List
 
-  module ListMonad = struct
-    type 'a t = 'a list
-    let pure x = x :: []
-    let bind mx k = flatten (map k mx)
-  end
-
-  include ListMonad
-  include Monad.ToApplicative (ListMonad)
-
-  module Traverse = struct
-    module Make (M : MONAD) = struct
-      open Monad.ToApplicative (M)
-      let rec sequence = function
-        | [] -> M.pure []
-        | mx :: mxs ->
-           let+ x = mx 
-           and+ xs = sequence mxs in
-           x :: xs
-      let traverse f xs = sequence (List.map f xs)
-    end
-  end
-end
