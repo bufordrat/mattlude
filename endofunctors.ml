@@ -178,7 +178,6 @@ module Result = struct
   end
 end
 
-
 module State = struct
   module type PURESTATE = sig
     type t
@@ -206,5 +205,3 @@ module State = struct
     module _ : MONAD = StateMonad
   end
 end
-
-
