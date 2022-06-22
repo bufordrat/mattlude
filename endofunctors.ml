@@ -126,8 +126,8 @@ end
          
 (* helper functions for optional values *)
 module Option = struct
-  include Stdlib.Option
   include Prelude.Option
+  include Stdlib.Option
 
   (* unwraps the Somes; throws the None-s out *)
   let cat_options lst =
