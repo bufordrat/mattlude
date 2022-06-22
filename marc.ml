@@ -13,6 +13,11 @@ module SaferStdLib = struct
   let assoc_res key alist = match assoc_opt key alist with
     | Some x -> Ok x
     | None -> Error "key error"
+
+  let assocs_res key alist =
+    match assocs key alist with
+    | [] -> Error "key error"
+    | lst -> Ok lst
 end
 
 module type TABLE = sig
@@ -20,7 +25,7 @@ module type TABLE = sig
   type field
   type subfield
   type error
-  (* val lookup : field -> ?subfield:char option -> t -> string option *)
+  val lookup : field -> ?subfield:char option -> t -> string list option
 end
 
 module Table = struct
@@ -63,30 +68,31 @@ module Table = struct
 
     let trim = String.trim " \n\t\r\031\030"
 
-    let lookup_sub chr str =
-      let lst = String.split ~sep:"\031" str in
-      let starts_with chr str = str.[0] = chr in
-      let reducer res str =
-        if starts_with chr str
-        then Ok (String.drop 1 str)
-        else res
-      in
-      let key_error = Error "subfield key error" in
-      foldl reducer key_error lst
+    let subfields_to_alist str =
+      let trimmed = String.drop 2 str in
+      let lst = String.split ~sep:"\031" trimmed in
+      let mk_pair str = String.(str.[0], drop 1 str) in
+      List.map mk_pair lst 
 
     let lookup_res field ?(subfield=None) marc =
+      let open Endofunctors in
+      let open List.Traverse.Make (R.ResultMonad) in
       let* bpos = base_pos marc in
-      let* dir = directory marc in
-      let* l_str, pos_str = assoc_res field dir in
-      let* l = string_to_int l_str in
-      let* p = string_to_int pos_str in
       let body = String.drop bpos marc in
-      let looked_up = slice p (p + l) body in 
-      let+ output = match subfield with
-        | None -> pure (looked_up)
-        | Some s -> lookup_sub s looked_up
+      let* dir = directory marc in
+      let* fields = assocs_res field dir in
+      let each_field (l_str, pos_str) =
+        let+ l = string_to_int l_str
+        and+ p = string_to_int pos_str in
+        slice p (p + l) body
       in
-      trim output
+      let* lookups = traverse each_field fields in
+      let+ output = match subfield with
+        | None -> pure lookups
+        | Some s -> List.map subfields_to_alist lookups
+                    |> traverse (assoc_res s)
+      in
+      List.map trim output
 
     let lookup field ?(subfield=None) marc =
       lookup_res field ~subfield:subfield marc

@@ -117,6 +117,7 @@ module Option = struct
     let bind = bind
   end
 
+  include OptionMonad
   include Monad.ToApplicative (OptionMonad)
 end
 
@@ -137,7 +138,8 @@ module Result = struct
       let pure = Result.ok
       let bind = Result.bind
     end
-    
+
+    (* TODO: figure out why including ResultMonad here breaks my broken parser *)
     include Monad.ToApplicative (ResultMonad)
   end
 end
@@ -156,13 +158,14 @@ module State = struct
         k result1 @@ state2
     end
 
+    include StateMonad
+    include Monad.ToApplicative (StateMonad)
+
     let put value _ = ((), value)
     let get state = (state, state)
 
     let eval mx state = mx state |> fst
     let exec mx state = mx state |> snd
-
-    include Monad.ToApplicative (StateMonad)
   end
 end
 
@@ -175,6 +178,8 @@ module List = struct
     let pure x = x :: []
     let bind mx k = flatten (map k mx)
   end
+
+  include ListMonad
   include Monad.ToApplicative (ListMonad)
 
   module Traverse = struct
