@@ -1,10 +1,11 @@
 open Prelude
 
+
 module type SEMIGROUP = sig
   type 'a t
   val append : 'a t -> 'a t -> 'a t
 end
-   
+
 module type MONOID = sig
   include SEMIGROUP
   val empty : 'a t
@@ -36,6 +37,11 @@ module Functor = struct
   end
 end
 module type FUNCTOR = Functor.FUNCTOR
+
+module type TRAVERSABLE = sig
+  include FUNCTOR
+  include FOLDABLE with type 'a t := 'a t
+end
 
 module Applicative = struct
   module type APPLICATIVE = sig
