@@ -123,6 +123,7 @@ module List = struct
   include Monad.ToApplicative (ListMonad)
   include Traverse.Make (ListMonad)
 end
+module _ : MONAD = List
          
 (* helper functions for optional values *)
 module Option = struct
@@ -149,6 +150,7 @@ module Option = struct
   include Monad.ToApplicative (OptionMonad)
   include List.Traverse.Make (OptionMonad)
 end
+module _ : MONAD = Option
 
 module Result = struct
   (* module functor for building a Result module with cool extra stuff
@@ -171,8 +173,11 @@ module Result = struct
     (* TODO: figure out why including ResultMonad here breaks my broken parser *)
     include Monad.ToApplicative (ResultMonad)
     include List.Traverse.Make (ResultMonad)
+
+    module _ : MONAD = ResultMonad
   end
 end
+
 
 module State = struct
   module type PURESTATE = sig
@@ -197,6 +202,8 @@ module State = struct
 
     let eval mx state = mx state |> fst
     let exec mx state = mx state |> snd
+
+    module _ : MONAD = StateMonad
   end
 end
 
