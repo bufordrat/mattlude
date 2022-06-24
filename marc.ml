@@ -25,7 +25,7 @@ module type TABLE = sig
   type field
   type subfield
   type error
-  val lookup : field -> ?subfield:char option -> t -> string list option
+  val lookup : field -> ?subfield:char -> t -> string list option
 end
 
 module Table = struct
@@ -74,7 +74,7 @@ module Table = struct
       let mk_pair str = String.(str.[0], drop 1 str) in
       List.map mk_pair lst 
 
-    let lookup_res field ?(subfield=None) marc =
+    let lookup_res field ?subfield marc =
       let open Endofunctors in
       let open List.Traverse.Make (R.ResultMonad) in
       let* bpos = base_pos marc in
@@ -94,8 +94,8 @@ module Table = struct
       in
       List.map trim output
 
-    let lookup field ?(subfield=None) marc =
-      lookup_res field ~subfield:subfield marc
+    let lookup field ?subfield marc =
+      lookup_res field ?subfield marc
       |> Result.to_option
   end
 
