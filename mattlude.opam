@@ -2,6 +2,8 @@
 opam-version: "2.0"
 synopsis: "matt"
 description: "matt"
+homepage: "https://github.com/bufordrat/mattlude"
+bug-reports: "https://github.com/bufordrat/mattlude/issues"
 depends: [
   "dune" {>= "2.9"}
   "prelude"
@@ -23,3 +25,4 @@ build: [
   ]
   ["dune" "install" "-p" name "--create-install-files" name]
 ]
+dev-repo: "git+https://github.com/bufordrat/mattlude.git"

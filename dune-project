@@ -6,5 +6,6 @@
  (name mattlude)
  (synopsis "matt")
  (description "matt")
- (depends prelude))
+ (depends prelude)
+ (source (github bufordrat/mattlude)))
 
