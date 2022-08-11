@@ -4,6 +4,7 @@ synopsis: "matt"
 description: "matt"
 depends: [
   "dune" {>= "2.9"}
+  "prelude"
   "odoc" {with-doc}
 ]
 build: [
