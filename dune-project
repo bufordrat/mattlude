@@ -5,4 +5,6 @@
 (package
  (name mattlude)
  (synopsis "matt")
- (description "matt"))
+ (description "matt")
+ (depends prelude))
+
