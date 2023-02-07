@@ -24,6 +24,27 @@ module Free = struct
         | Join rest -> Join (F.map (flip bind @@ k) rest)
       
       let lift cmd = Join (F.map pure cmd)
+
+    end
+    include FreeMonad
+    include Monad.ToApplicative (FreeMonad)
+  end
+
+  module PolyMake (F : FUNCTOR) = struct
+    module FreeMonad = struct
+      type 'a t = [
+        | `Pure of 'a
+        | `Join of ('a t) F.t
+        ]
+      
+      let pure x = `Pure x
+      
+      let rec bind mx k = match mx with
+        | `Pure x -> k x
+        | `Join rest -> `Join (F.map (flip bind @@ k) rest)
+      
+      let lift cmd = `Join (F.map pure cmd)
+
     end
     include FreeMonad
     include Monad.ToApplicative (FreeMonad)
