@@ -5,10 +5,34 @@
  * Mattlude Version 1.0
  *)
 
-
 open Prelude
 open Endofunctors
 
+module Env = struct
+  (* let get = 5 *)
+
+  type (_,_) opt_or_def =
+    | ReturnOption : ('a, 'a option) opt_or_def
+    | DefaultTo : 'a -> ('a, 'a) opt_or_def
+
+  let rec lookup
+          : type a. (string, a) opt_or_def -> string -> a =
+    fun what_to_do str ->
+    let open Prelude.Unix.Env in
+    let value = env () |> List.assoc_opt str in
+    match value with
+    | Some v -> begin
+        match what_to_do with
+        | ReturnOption -> Some v
+        | DefaultTo _ -> v
+      end
+    | None -> begin
+        match what_to_do with
+        | ReturnOption -> None
+        | DefaultTo d -> d
+        end
+
+end
 
 module Free = struct
   module Make (F : FUNCTOR) = struct
@@ -639,12 +663,6 @@ type keith_or_matt = Keith | Matt
 
 type keith_or_matt_or_whatever =
   [ `Keith | `Matt ]
-
-
-module Julian = struct
-  let julian = "julian"
-end
-
 
       (* module LogInterpreter = struct
        *   module WL = Functor.Compose (Log) (Program)

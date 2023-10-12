@@ -123,6 +123,7 @@ module List = struct
         in
         foldl reducer (M.pure []) lst >>| rev
       let traverse f xs = sequence (List.map f xs)
+      let forM xs f = traverse f xs
     end
   end
                   

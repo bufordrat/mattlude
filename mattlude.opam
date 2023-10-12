@@ -2,10 +2,10 @@
 opam-version: "2.0"
 synopsis: "Experimental additions to KW's Prelude"
 description: "Experimental additions to KW's Prelude"
-maintainer: ["'Matt" "Teichman" "<teichman@uchicago.edu>'"]
-authors: ["'Matt" "Teichman" "<teichman@uchicago.edu>'"]
-homepage: "'https://github.com/bufordrat/mattlude'"
-bug-reports: "'https://github.com/bufordrat/mattlude'"
+maintainer: ["Matt Teichman <teichman@uchicago.edu>"]
+authors: ["Matt Teichman <teichman@uchicago.edu>"]
+homepage: "https://github.com/bufordrat/mattlude"
+bug-reports: "https://github.com/bufordrat/mattlude"
 depends: [
   "dune" {>= "2.9"}
   "prelude"
