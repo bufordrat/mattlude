@@ -40,11 +40,14 @@ module Functor = struct
     let (>|=) = ( let+ )
     let (<$>) = map
   end
+  module _ : functor (F : BASIC) -> AUGMENTED = Augmented
 
   module Compose (F1 : BASIC) (F2 : BASIC) = struct
     type 'a t = 'a F2.t F1.t
     let map f composed = F1.map (F2.map f) composed
   end
+  module _ : functor (F1 : BASIC) (F2 : BASIC) -> BASIC = Compose
+
 end
 module type FUNCTOR = Functor.AUGMENTED
 
@@ -70,24 +73,23 @@ module Applicative = struct
   end
 
   module Augmented (A : BASIC) = struct
-    include A
     include Functor.Augmented (A)
     type 'a t = 'a A.t
-    let ( and+ ) = product
-    let apply af ax = map
+    let ( and+ ) = A.product
+    let apply af ax = A.map
                         (fun (f, x) -> f x)
-                        (product af ax)
+                        (A.product af ax)
     let (<*>) = apply
   end
+  module _ : functor (A : BASIC) -> AUGMENTED = Augmented
+
 end
 module type APPLICATIVE = Applicative.AUGMENTED
 
-(* module Monad = struct
- *   module type MONAD = sig
- *     type 'a t
- *     val pure : 'a -> 'a t
- *     val bind : 'a t -> ('a -> 'b t) -> 'b t
- *   end
- * 
- * 
- * end *)
+module Monad = struct
+  module type MONAD = sig
+    type 'a t
+    val pure : 'a -> 'a t
+    val bind : 'a t -> ('a -> 'b t) -> 'b t
+  end
+end
