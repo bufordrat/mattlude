@@ -42,11 +42,12 @@ module Functor = struct
   end
   module _ : functor (F : BASIC) -> AUGMENTED = Augmented
 
-  module Compose (F1 : BASIC) (F2 : BASIC) = struct
+  module Compose (F1 : BASIC) (F2 : BASIC)
+         : BASIC with type 'a t = 'a F2.t F1.t
+    = struct
     type 'a t = 'a F2.t F1.t
     let map f composed = F1.map (F2.map f) composed
   end
-  module _ : functor (F1 : BASIC) (F2 : BASIC) -> BASIC = Compose
 end
 module type FUNCTOR = Functor.BASIC
 
