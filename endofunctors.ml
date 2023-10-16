@@ -47,9 +47,8 @@ module Functor = struct
     let map f composed = F1.map (F2.map f) composed
   end
   module _ : functor (F1 : BASIC) (F2 : BASIC) -> BASIC = Compose
-
 end
-module type FUNCTOR = Functor.AUGMENTED
+module type FUNCTOR = Functor.BASIC
 
 module type TRAVERSABLE = sig
   type 'a t
@@ -84,7 +83,7 @@ module Applicative = struct
   module _ : functor (A : BASIC) -> AUGMENTED = Augmented
 
 end
-module type APPLICATIVE = Applicative.AUGMENTED
+module type APPLICATIVE = Applicative.BASIC
 
 module Monad = struct
   module type BASIC = sig
@@ -125,3 +124,4 @@ module Monad = struct
     include Applicative.Augmented (I)
   end
 end
+module type MONAD = Monad.BASIC
