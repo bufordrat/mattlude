@@ -1,5 +1,5 @@
 open Prelude
-open Endofunctors
+open Endofunctors_old
 
 module StringParser = struct
 

@@ -39,7 +39,7 @@ module Table = struct
   module FakeSeek = struct
 
     module E = struct type t = string end
-    module R = Endofunctors.Result.Make (E)
+    module R = Endofunctors_old.Result.Make (E)
     include R
        
     let leader table = slice 0 24 table
@@ -75,7 +75,7 @@ module Table = struct
       List.map mk_pair lst 
 
     let lookup_res field ?subfield marc =
-      let open Endofunctors in
+      let open Endofunctors_old in
       let open List.Traverse.Make (R.ResultMonad) in
       let* bpos = base_pos marc in
       let body = String.drop bpos marc in

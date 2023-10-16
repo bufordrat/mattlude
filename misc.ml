@@ -6,7 +6,7 @@
  *)
 
 open Prelude
-open Endofunctors
+open Endofunctors_old
 
 module Env = struct
   (* let get = 5 *)
