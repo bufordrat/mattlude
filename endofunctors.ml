@@ -149,3 +149,12 @@ module Option = struct
   include OptionMonad
   include Monad.Augmented (OptionMonad)
 end
+
+module Result = struct
+  module type ERROR = sig type t end
+
+  module Make (E : ERROR) = struct
+    include Prelude.Result
+    include Stdlib.Result
+  end
+end
