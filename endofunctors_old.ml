@@ -72,33 +72,33 @@ module Monad = struct
     let pure = M.pure
     let bind = M.bind
     let (>>=) = bind
-    let (let*) = bind
+    let ( let* ) = bind
     let (>=>) mf mg x = mf x >>= mg
     let (<=<) mf mg x = mg x >>= mf
     let (>>) mx my = mx >>= fun _ -> my
+  end
+
+  module ToApplicative (M : MONAD) = struct
+    include Goodies (M)
+
+    (* reduction of applicative interface to monadic interface *)
+    let map f mx = let* x = mx in
+                   pure (f x)
+    let product ax ay = let* x = ax in
+                        let* y = ay in
+                        pure (x,y)
+
+    module I = struct
+      type 'a t = 'a M.t
+      let map = map
+      let product = product
     end
 
-    module ToApplicative (M : MONAD) = struct
-      include Goodies (M)
-
-      (* reduction of applicative interface to monadic interface *)
-      let map f mx = let* x = mx in
-                     pure (f x)
-      let product ax ay = let* x = ax in
-                          let* y = ay in
-                          pure (x,y)
-
-      module I = struct
-        type 'a t = 'a M.t
-        let map = map
-        let product = product
-      end
-
-      include Applicative.Goodies (I)
-      open Fun
-      let ( <* ) ax ay = pure const <*> ax <*> ay
-      let ( *> ) ax ay = pure (flip const) <*> ax <*> ay
-    end
+    include Applicative.Goodies (I)
+    open Fun
+    let ( <* ) ax ay = pure const <*> ax <*> ay
+    let ( *> ) ax ay = pure (flip const) <*> ax <*> ay
+  end
 end
 module type MONAD = Monad.MONAD
 
