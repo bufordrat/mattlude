@@ -17,23 +17,22 @@ module type FOLDABLE = sig
 end
 
 module Functor = struct
-  module type FUNCTOR = sig
+  module type BASIC = sig
     type 'a t
     val map : ('a -> 'b) -> 'a t -> 'b t
   end
 
-  module type GOODIES = sig
+  module type AUGMENTED = sig
     type 'a t
-    include FUNCTOR with type 'a t := 'a t
+    include BASIC with type 'a t := 'a t
     val ( let+ ) : 'a t -> ('a -> 'b) -> 'b t
     val (>>|) : 'a t -> ('a -> 'b) -> 'b t
     val (<&>) : 'a t -> ('a -> 'b) -> 'b t
     val (>|=) : 'a t -> ('a -> 'b) -> 'b t
-    val (>|=) : 'a t -> ('a -> 'b) -> 'b t
     val (<$>) : ('a -> 'b) -> 'a t -> 'b t
   end
 
-  module Goodies (F : FUNCTOR) = struct
+  module Augmented (F : BASIC) = struct
     include F 
     let ( let+ ) x f = map f x
     let (>>|) = ( let+ )
@@ -42,12 +41,12 @@ module Functor = struct
     let (<$>) = map
   end
 
-  module Compose (F1 : FUNCTOR) (F2 : FUNCTOR) : FUNCTOR = struct
+  module Compose (F1 : BASIC) (F2 : BASIC) = struct
     type 'a t = 'a F2.t F1.t
     let map f composed = F1.map (F2.map f) composed
   end
 end
-module type FUNCTOR = Functor.FUNCTOR
+module type FUNCTOR = Functor.AUGMENTED
 
 module type TRAVERSABLE = sig
   type 'a t
@@ -56,23 +55,23 @@ module type TRAVERSABLE = sig
 end
 
 module Applicative = struct
-  module type APPLICATIVE = sig
+  module type BASIC = sig
     type 'a t
     include FUNCTOR with type 'a t := 'a t
     val product : 'a t -> 'b t -> ('a * 'b) t
   end
 
-  module type GOODIES = sig
+  module type AUGMENTED = sig
     type 'a t
-    include Functor.GOODIES with type 'a t := 'a t
+    include Functor.AUGMENTED with type 'a t := 'a t
     val ( and+ ) : 'a t -> 'b t -> ('a * 'b) t
     val apply : ('a -> 'b) t -> 'a t -> 'b t
     val (<*>) : ('a -> 'b) t -> 'a t -> 'b t
   end
 
-  module Goodies (A : APPLICATIVE) = struct
+  module Augmented (A : BASIC) = struct
     include A
-    include Functor.Goodies (A)
+    include Functor.Augmented (A)
     type 'a t = 'a A.t
     let ( and+ ) = product
     let apply af ax = map
@@ -81,7 +80,7 @@ module Applicative = struct
     let (<*>) = apply
   end
 end
-module type APPLICATIVE = Applicative.APPLICATIVE
+module type APPLICATIVE = Applicative.AUGMENTED
 
 (* module Monad = struct
  *   module type MONAD = sig
