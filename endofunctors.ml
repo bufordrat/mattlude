@@ -71,7 +71,8 @@ module Applicative = struct
     val ( <*> ) : ('a -> 'b) t -> 'a t -> 'b t
   end
 
-  module Augmented (A : BASIC) = struct
+  module Augmented (A : BASIC)
+         : AUGMENTED with type 'a t = 'a A.t = struct
     include Functor.Augmented (A)
     type 'a t = 'a A.t
     let ( and+ ) = A.product
@@ -80,7 +81,6 @@ module Applicative = struct
                         (A.product af ax)
     let ( <*> ) = apply
   end
-  module _ : functor (A : BASIC) -> AUGMENTED = Augmented
 
 end
 module type APPLICATIVE = Applicative.BASIC
@@ -103,7 +103,9 @@ module Monad = struct
     val ( >> ) : 'a t -> 'b t -> 'b t
   end
 
-  module Augmented (M : BASIC) : AUGMENTED = struct
+  module Augmented (M : BASIC)
+         : AUGMENTED with type 'a t = 'a M.t
+    = struct
     let pure = M.pure
     let bind = M.bind
     let ( >>= ) = bind
@@ -120,8 +122,29 @@ module Monad = struct
                           let* y = ay in
                           pure (x,y)
     end
-
     include Applicative.Augmented (I)
   end
 end
 module type MONAD = Monad.BASIC
+
+module Option = struct
+  include Prelude.Option
+  include Stdlib.Option
+
+  let cat_options lst =
+    let rec cat_options' acc = function
+      | [] -> acc
+      | Some x :: xs -> cat_options' (x :: acc) xs
+      | None :: xs -> cat_options' acc xs
+    in
+    List.rev @@ cat_options' [] lst
+
+  module OptionMonad = struct
+    type 'a t = 'a option
+    let pure = some
+    let bind = bind
+  end
+
+  include OptionMonad
+  include Monad.Augmented (OptionMonad)
+end
