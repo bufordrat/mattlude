@@ -155,8 +155,40 @@ end
 module Result = struct
   module type ERROR = sig type t end
 
-  module Make (E : ERROR) = struct
+  module type AUGMENTED =
+    Endofunctors_intf.RESULT
+
+  module Make (E : ERROR) : sig
+    type 'a t = ('a, E.t) result
+    include AUGMENTED with type 'a t := 'a t
+    end = struct
     include Prelude.Result
     include Stdlib.Result
+
+    module ResultMonad = struct
+      type 'a t = ('a, E.t) result
+      let pure = Result.ok
+      let bind = Result.bind
+    end
+    include Monad.Make (ResultMonad)
   end
 end
+
+(* module State = struct
+ *   module type PURESTATE = sig
+ * 
+ *   end
+ * 
+ *   module Make = struct
+ *   module StateMonad = struct
+ *     type 'a t = S.t -> ('a * S.t)
+ *     let pure x state = (x, state)
+ *     let bind mx k state1 =
+ *       let ( result1, state2 ) = mx state1 in
+ *       k result1 @@ state2
+ *   end
+ * 
+ *   include Monad.Make (StateMonad)
+ * 
+ * 
+ * end *)
