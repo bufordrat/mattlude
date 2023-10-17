@@ -74,21 +74,41 @@ module Result = struct
 
   module type PRELUDE = sig
     type 'a t
+    val ok : 'a -> 'a t
     val good : 'a t -> bool
     val bad : 'a t -> bool
     val get_ok : 'a t -> 'a
     val default : 'a -> 'a t -> 'a
     val reduce : 'a t list -> 'a list
+    val always : 'a -> (unit -> 'b) -> 'b
+    val to_bool : 'a t -> bool
+    val to_option : 'a t -> 'a option
 
   (* not included because they are polymorphic in the error type:
+   * error
    * get_error
-   * 
-   * 
-   * not included because this library generates them with Monad.Make
+   * on_error
+   * ( >>/ )
+   * ( or )
+   * trap
+   * trapc
+   * witherr
+   * witherrc
+   * of_bool
+   * some_error
+   * Seq module *)
+  
+  (* not included because this library generates them with Monad.Make
    * bind
    * ( >>= )
    * map
-   * ( >>| ) *)
+   * ( >>| )
+   * ( >=> )
+   * join *)
+  end
+
+  module type STDLIB = sig
+    (* TODO *)
   end
 
   module type AUGMENTED = sig
