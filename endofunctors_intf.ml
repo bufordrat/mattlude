@@ -87,8 +87,6 @@ module Result = struct
     val always : 'a -> (unit -> 'b) -> 'b
     val to_bool : 'a t -> bool
     val to_option : 'a t -> 'a option
-
-
   end
 
   module type STDLIB = sig
