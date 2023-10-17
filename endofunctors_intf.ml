@@ -73,6 +73,10 @@ end
 module Result = struct
 
   module type PRELUDE = sig
+
+    (* Prelude values that are polymorphic in the error type are
+       defined in Endofunctors.Result.Make. *)
+
     type 'a t
     val ok : 'a -> 'a t
     val good : 'a t -> bool
@@ -84,31 +88,19 @@ module Result = struct
     val to_bool : 'a t -> bool
     val to_option : 'a t -> 'a option
 
-  (* not included because they are polymorphic in the error type:
-   * error
-   * get_error
-   * on_error
-   * ( >>/ )
-   * ( or )
-   * trap
-   * trapc
-   * witherr
-   * witherrc
-   * of_bool
-   * some_error
-   * Seq module *)
-  
-  (* not included because this library generates them with Monad.Make
-   * bind
-   * ( >>= )
-   * map
-   * ( >>| )
-   * ( >=> )
-   * join *)
+
   end
 
   module type STDLIB = sig
+
+    (* Stdlib values that are polymorphic in the error type are
+       defined in Endofunctors.Result.Make. *)
+
     type 'a t
+    val value : 'a t -> default:'a -> 'a
+    val to_option : 'a t -> 'a option
+    val to_list : 'a t -> 'a list
+    val to_seq : 'a t -> 'a Seq.t
   end
 
   module type AUGMENTED = sig
