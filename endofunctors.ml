@@ -32,7 +32,9 @@ module Functor = struct
     val ( <$> ) : ('a -> 'b) -> 'a t -> 'b t
   end
 
-  module Augmented (F : BASIC) = struct
+  module Make (F : BASIC)
+         : AUGMENTED with type 'a t = 'a F.t
+    = struct
     include F 
     let ( let+ ) x f = map f x
     let ( >>| ) = ( let+ )
@@ -40,7 +42,7 @@ module Functor = struct
     let ( >|= ) = ( let+ )
     let ( <$> ) = map
   end
-  module _ : functor (F : BASIC) -> AUGMENTED = Augmented
+  (* module _ : functor (F : BASIC) -> AUGMENTED = Augmented *)
 
   module Compose (F1 : BASIC) (F2 : BASIC)
          : BASIC with type 'a t = 'a F2.t F1.t
@@ -72,9 +74,9 @@ module Applicative = struct
     val ( <*> ) : ('a -> 'b) t -> 'a t -> 'b t
   end
 
-  module Augmented (A : BASIC)
+  module Make (A : BASIC)
          : AUGMENTED with type 'a t = 'a A.t = struct
-    include Functor.Augmented (A)
+    include Functor.Make (A)
     type 'a t = 'a A.t
     let ( and+ ) = A.product
     let apply af ax = map
@@ -104,7 +106,7 @@ module Monad = struct
     val ( >> ) : 'a t -> 'b t -> 'b t
   end
 
-  module Augmented (M : BASIC)
+  module Make (M : BASIC)
          : AUGMENTED with type 'a t = 'a M.t
     = struct
     let pure = M.pure
@@ -123,7 +125,7 @@ module Monad = struct
                           let* y = ay in
                           pure (x,y)
     end
-    include Applicative.Augmented (I)
+    include Applicative.Make (I)
   end
 end
 module type MONAD = Monad.BASIC
@@ -147,7 +149,7 @@ module Option = struct
   end
 
   include OptionMonad
-  include Monad.Augmented (OptionMonad)
+  include Monad.Make (OptionMonad)
 end
 
 module Result = struct
