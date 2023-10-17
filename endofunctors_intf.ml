@@ -108,13 +108,13 @@ module Result = struct
   end
 
   module type STDLIB = sig
-    (* TODO *)
+    type 'a t
   end
 
   module type AUGMENTED = sig
     type 'a t
     include PRELUDE with type 'a t := 'a t
-    include STDLIB 
+    include STDLIB with type 'a t := 'a t
     include Monad.AUGMENTED with type 'a t := 'a t
   end
 end

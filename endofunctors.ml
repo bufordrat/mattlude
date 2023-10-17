@@ -123,7 +123,14 @@ module Result = struct
 
   module Make (E : ERROR) : sig
     type 'a t = ('a, E.t) result
-    include AUGMENTED with type 'a t := 'a t
+    (* Prelude values that are polymorphic in the error type go here. *)
+    val error : E.t -> ('a, E.t) result
+    val get_error : ('a, E.t) result -> E.t
+    val on_error : ('a, E.t) result -> (E.t -> ('a, 'c) result) -> ('a, 'c) result
+    val ( >>/ ) : ('a, E.t) result -> (E.t -> ('a, 'c) result) -> ('a, 'c) result
+    val ( or ) : ('a, E.t) result -> ('a, 'c) result -> ('a, 'c) result
+    val trap : (exn -> E.t) -> ('b -> 'c) -> 'b -> ('c, E.t) result
+    include AUGMENTED with type 'a t := ('a, E.t) result
     end = struct
     include Prelude.Result
     include Stdlib.Result
