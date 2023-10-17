@@ -1,36 +1,18 @@
-module type SEMIGROUP = sig
-  type 'a t
-  val append : 'a t -> 'a t -> 'a t
-end
+module type SEMIGROUP =
+  Endofunctors_intf.SEMIGROUP
 
-module type MONOID = sig
-  type 'a t
-  include SEMIGROUP with type 'a t := 'a t
-  val empty : 'a t
-end
+module type MONOID =
+  Endofunctors_intf.MONOID
 
-module type FOLDABLE = sig
-  type 'a t
-  include MONOID with type 'a t := 'a t
-  val foldl : ('b -> 'a -> 'b) -> 'b -> 'a t -> 'b
-  val null : 'a t -> bool
-end
+module type FOLDABLE =
+  Endofunctors_intf.FOLDABLE
 
 module Functor = struct
-  module type BASIC = sig
-    type 'a t
-    val map : ('a -> 'b) -> 'a t -> 'b t
-  end
+  module type BASIC =
+    Endofunctors_intf.Functor.BASIC
 
-  module type AUGMENTED = sig
-    type 'a t
-    include BASIC with type 'a t := 'a t
-    val ( let+ ) : 'a t -> ('a -> 'b) -> 'b t
-    val ( >>| ) : 'a t -> ('a -> 'b) -> 'b t
-    val ( <&> ) : 'a t -> ('a -> 'b) -> 'b t
-    val ( >|= ) : 'a t -> ('a -> 'b) -> 'b t
-    val ( <$> ) : ('a -> 'b) -> 'a t -> 'b t
-  end
+  module type AUGMENTED =
+    Endofunctors_intf.Functor.AUGMENTED
 
   module Make (F : BASIC)
          : AUGMENTED with type 'a t = 'a F.t
@@ -42,7 +24,6 @@ module Functor = struct
     let ( >|= ) = ( let+ )
     let ( <$> ) = map
   end
-  (* module _ : functor (F : BASIC) -> AUGMENTED = Augmented *)
 
   module Compose (F1 : BASIC) (F2 : BASIC)
          : BASIC with type 'a t = 'a F2.t F1.t
@@ -60,19 +41,11 @@ module type TRAVERSABLE = sig
 end
 
 module Applicative = struct
-  module type BASIC = sig
-    type 'a t
-    include Functor.BASIC with type 'a t := 'a t
-    val product : 'a t -> 'b t -> ('a * 'b) t
-  end
+  module type BASIC =
+    Endofunctors_intf.Applicative.BASIC
 
-  module type AUGMENTED = sig
-    type 'a t
-    include Functor.AUGMENTED with type 'a t := 'a t
-    val ( and+ ) : 'a t -> 'b t -> ('a * 'b) t
-    val apply : ('a -> 'b) t -> 'a t -> 'b t
-    val ( <*> ) : ('a -> 'b) t -> 'a t -> 'b t
-  end
+  module type AUGMENTED =
+    Endofunctors_intf.Applicative.AUGMENTED
 
   module Make (A : BASIC)
          : AUGMENTED with type 'a t = 'a A.t = struct
@@ -89,22 +62,11 @@ end
 module type APPLICATIVE = Applicative.BASIC
 
 module Monad = struct
-  module type BASIC = sig
-    type 'a t
-    val pure : 'a -> 'a t
-    val bind : 'a t -> ('a -> 'b t) -> 'b t
-  end
+  module type BASIC =
+    Endofunctors_intf.Monad.BASIC
 
-  module type AUGMENTED = sig
-    type 'a t
-    include BASIC with type 'a t := 'a t
-    include Applicative.AUGMENTED with type 'a t := 'a t
-    val ( >>= ) : 'a t -> ('a -> 'b t) -> 'b t
-    val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
-    val ( >=> ) : ('a -> 'b t) -> ('b -> 'c t) -> 'a -> 'c t
-    val ( <=< ) : ('a -> 'b t) -> ('c -> 'a t) -> 'c -> 'b t
-    val ( >> ) : 'a t -> 'b t -> 'b t
-  end
+  module type AUGMENTED =
+    Endofunctors_intf.Monad.AUGMENTED
 
   module Make (M : BASIC)
          : AUGMENTED with type 'a t = 'a M.t

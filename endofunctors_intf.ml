@@ -1,3 +1,21 @@
+module type SEMIGROUP = sig
+  type 'a t
+  val append : 'a t -> 'a t -> 'a t
+end
+
+module type MONOID = sig
+  type 'a t
+  include SEMIGROUP with type 'a t := 'a t
+  val empty : 'a t
+end
+
+module type FOLDABLE = sig
+  type 'a t
+  include MONOID with type 'a t := 'a t
+  val foldl : ('b -> 'a -> 'b) -> 'b -> 'a t -> 'b
+  val null : 'a t -> bool
+end
+
 module Functor = struct
   module type BASIC = sig
     type 'a t
