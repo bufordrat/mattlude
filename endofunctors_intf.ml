@@ -114,6 +114,7 @@ module Result = struct
   module type AUGMENTED = sig
     type 'a t
     include PRELUDE with type 'a t := 'a t
+    include STDLIB 
     include Monad.AUGMENTED with type 'a t := 'a t
   end
 end
