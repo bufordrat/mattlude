@@ -78,6 +78,7 @@ module Monad = struct
     let ( >=> ) mf mg x = mf x >>= mg
     let ( <=< ) mf mg x = mg x >>= mf
     let ( >> ) mx my = mx >>= fun _ -> my
+    let join mx = let* x = mx in x
 
     module I = struct
       type 'a t = 'a M.t

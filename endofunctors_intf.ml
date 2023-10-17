@@ -65,6 +65,7 @@ module Monad = struct
     val ( >=> ) : ('a -> 'b t) -> ('b -> 'c t) -> 'a -> 'c t
     val ( <=< ) : ('a -> 'b t) -> ('c -> 'a t) -> 'c -> 'b t
     val ( >> ) : 'a t -> 'b t -> 'b t
+    val join : 'a t t -> 'a t
   end
 
 end
