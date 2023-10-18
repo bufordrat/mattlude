@@ -67,7 +67,6 @@ module Monad = struct
     val ( >> ) : 'a t -> 'b t -> 'b t
     val join : 'a t t -> 'a t
   end
-
 end
 
 module Result = struct
@@ -109,3 +108,14 @@ module Result = struct
   end
 end
 module type RESULT = Result.AUGMENTED
+
+module State = struct
+  module type BASIC = sig
+    type ('state, 'value) t
+    val put : 'state -> ('state, unit) t
+    val get : ('state, 'state) t
+    val eval : ('state, 'value) t -> 'state -> 'value
+    val exec : ('state, 'value) t -> 'state -> 'state
+    val run : ('state, 'value) t -> 'state -> 'value * 'state
+  end
+end

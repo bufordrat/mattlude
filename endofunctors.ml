@@ -52,7 +52,7 @@ module Applicative = struct
     include Functor.Make (A)
     type 'a t = 'a A.t
     let ( and+ ) = A.product
-    let apply af ax = map
+    let apply af ax = A.map
                         (fun (f, x) -> f x)
                         (A.product af ax)
     let ( <*> ) = apply
@@ -178,21 +178,32 @@ module Result = struct
   end
 end
 
-(* module State = struct
- *   module type PURESTATE = sig
- * 
- *   end
- * 
- *   module Make = struct
- *   module StateMonad = struct
- *     type 'a t = S.t -> ('a * S.t)
- *     let pure x state = (x, state)
- *     let bind mx k state1 =
- *       let ( result1, state2 ) = mx state1 in
- *       k result1 @@ state2
- *   end
- * 
- *   include Monad.Make (StateMonad)
- * 
- * 
- * end *)
+module State = struct
+  module type PURESTATE = sig type t end
+
+  module type BASIC =
+    Endofunctors_intf.State.BASIC
+
+  module Make (S : PURESTATE) : sig
+    include MONAD with type 'a t := S.t -> 'a * S.t
+    include BASIC with type ('s, 'a) t := 's -> 'a * 's
+  end = struct
+
+    module StateMonad = struct
+      type 'a t = S.t -> 'a * S.t
+      let pure x state = (x, state)
+      let bind mx k state1 =
+        let ( result1, state2 ) = mx state1 in
+        k result1 @@ state2
+    end
+
+    let put state _ = ((), state)
+    let get state = (state, state)
+    
+    let eval mx state = mx state |> fst
+    let exec mx state = mx state |> snd
+    let run mx state = mx state
+
+    include Monad.Make (StateMonad)
+  end
+end

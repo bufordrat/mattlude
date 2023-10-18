@@ -1,6 +1,5 @@
 open Prelude
 
-
 module type SEMIGROUP = sig
   type 'a t
   val append : 'a t -> 'a t -> 'a t
