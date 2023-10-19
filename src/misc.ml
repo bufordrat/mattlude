@@ -15,7 +15,7 @@ module Env = struct
     | ReturnOption : ('a, 'a option) opt_or_def
     | DefaultTo : 'a -> ('a, 'a) opt_or_def
 
-  let rec lookup
+  let lookup
           : type a. (string, a) opt_or_def -> string -> a =
     fun what_to_do str ->
     let open Prelude.Unix.Env in
@@ -454,7 +454,7 @@ module Example = struct
 
     end
                       
-    open LexExample
+    (* open LexExample *)
   end
 
   (* module Parse = struct

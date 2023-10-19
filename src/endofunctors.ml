@@ -1,12 +1,3 @@
-module type SEMIGROUP =
-  Endofunctors_intf.SEMIGROUP
-
-module type MONOID =
-  Endofunctors_intf.MONOID
-
-module type FOLDABLE =
-  Endofunctors_intf.FOLDABLE
-
 module Functor = struct
   module type BASIC =
     Endofunctors_intf.Functor.BASIC
@@ -34,11 +25,6 @@ module Functor = struct
 end
 module type FUNCTOR = Functor.BASIC
 
-module type TRAVERSABLE = sig
-  type 'a t
-  include FUNCTOR with type 'a t := 'a t
-  include FOLDABLE with type 'a t := 'a t
-end
 
 module Applicative = struct
   module type BASIC =
@@ -151,8 +137,13 @@ module Result = struct
 
     (* Stdlib values that are polymorphic in the error type go
        here *)
-    val map_error : ('e -> E.t) -> ('a, 'e) result -> ('a, E.t) result
-    val fold : ok:('a -> 'c) -> error:(E.t -> 'c) -> ('a, E.t) result -> 'c
+    val map_error : ('e -> E.t) ->
+                    ('a, 'e) result ->
+                    ('a, E.t) result
+    val fold : ok:('a -> 'c) ->
+               error:(E.t -> 'c) ->
+               ('a, E.t) result ->
+               'c
     val equal :
       ok:('a -> 'a -> bool) ->
       error:(E.t -> E.t -> bool) ->
@@ -230,3 +221,4 @@ module State = struct
     let join = S.join
   end
 end
+

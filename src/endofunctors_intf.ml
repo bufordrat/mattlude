@@ -28,12 +28,20 @@ module Monoid = struct
 end
 module type MONOID = Monoid.BASIC
 
-module type FOLDABLE = sig
-  type 'a t
-  include MONOID with type 'a t := 'a t
-  val foldl : ('b -> 'a -> 'b) -> 'b -> 'a t -> 'b
-  val null : 'a t -> bool
+module Foldable = struct
+  module type BASIC = sig
+    type 'a t
+    include MONOID with type 'a t := 'a t
+    val foldl : ('b -> 'a -> 'b) -> 'b -> 'a t -> 'b
+  end
+
+  module type AUGMENTED = sig
+    type 'a t
+    include BASIC with type 'a t := 'a t
+    val null : 'a t -> bool
+  end
 end
+module type FOLDABLE = Foldable.BASIC
 
 module Functor = struct
   module type BASIC = sig
@@ -51,6 +59,7 @@ module Functor = struct
     val ( <$> ) : ('a -> 'b) -> 'a t -> 'b t
   end
 end
+module type FUNCTOR = Functor.AUGMENTED
                
 module Applicative = struct
   module type BASIC = sig
@@ -66,6 +75,13 @@ module Applicative = struct
     val apply : ('a -> 'b) t -> 'a t -> 'b t
     val ( <*> ) : ('a -> 'b) t -> 'a t -> 'b t
   end
+end
+module type APPLICATIVE = Applicative.AUGMENTED
+
+module type TRAVERSABLE = sig
+  type 'a t
+  include FUNCTOR with type 'a t := 'a t
+  include FOLDABLE with type 'a t := 'a t
 end
 
 module Monad = struct
@@ -87,6 +103,8 @@ module Monad = struct
     val join : 'a t t -> 'a t
   end
 end
+module type MONAD = Monad.AUGMENTED
+
 
 module Option = struct
 
