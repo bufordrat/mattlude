@@ -184,11 +184,16 @@ module State = struct
   module type BASIC =
     Endofunctors_intf.State.BASIC
 
+  module type MONAD =
+    Endofunctors_intf.Monad.AUGMENTED
+
   module Make (S : PURESTATE) : sig
-    include MONAD with type 'a t := S.t -> 'a * S.t
-    include BASIC with type ('s, 'a) t := 's -> 'a * 's
+    type ('s, 'a) t
+    include MONAD with type 'a t := (S.t, 'a) t
+    include BASIC with type ('s, 'a) t := ('s, 'a) t
   end = struct
 
+    type ('s, 'a) t = 's -> 'a * 's
     module StateMonad = struct
       type 'a t = S.t -> 'a * S.t
       let pure x state = (x, state)
@@ -204,6 +209,24 @@ module State = struct
     let exec mx state = mx state |> snd
     let run mx state = mx state
 
-    include Monad.Make (StateMonad)
+    module S = Monad.Make (StateMonad)
+
+    let pure = S.pure
+    let bind = S.bind
+    let map = S.map
+    let ( let+ ) = S.( let+ )
+    let ( >>| ) = S.( >>| )
+    let ( <&> ) = S.( <&> )
+    let ( >|= ) = S.( >|= )
+    let ( <$> ) = S.( <$> )
+    let ( and+ ) = S.( and+ )
+    let ( <*> ) = S.( <*> )
+    let apply = S.apply
+    let ( >>= ) = S.( >>= )
+    let ( let* ) = S.( let* )
+    let ( >=> ) = S.( >=> )
+    let ( <=< ) = S.( <=< )
+    let ( >> ) = S.( >> )
+    let join = S.join
   end
 end

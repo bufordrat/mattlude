@@ -7,7 +7,7 @@ module Semigroup = struct
   module type AUGMENTED = sig
     type 'a t
     include BASIC with type 'a t := 'a t
-    val sum : 'a t list -> 'a t
+    val (<|>) : 'a t -> 'a t -> 'a t
   end
 end
 module type SEMIGROUP = Semigroup.BASIC
@@ -15,14 +15,15 @@ module type SEMIGROUP = Semigroup.BASIC
 module Monoid = struct
   module type BASIC = sig
     type 'a t
-    include SEMIGROUP with type 'a t := 'a t
+    include Semigroup.BASIC with type 'a t := 'a t
     val empty : 'a t
   end
 
   module type AUGMENTED = sig
     type 'a t
     include Semigroup.AUGMENTED with type 'a t := 'a t
-    val empty : 'a t
+    include BASIC with type 'a t := 'a t
+    val sum : 'a t list -> 'a t
   end
 end
 module type MONOID = Monoid.BASIC
@@ -87,8 +88,11 @@ module Monad = struct
   end
 end
 
-module Result = struct
+module Option = struct
 
+end
+
+module Result = struct
   module type PRELUDE = sig
 
     (* Prelude values that are polymorphic in the error type are
