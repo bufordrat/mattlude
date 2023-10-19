@@ -1,13 +1,31 @@
-module type SEMIGROUP = sig
-  type 'a t
-  val append : 'a t -> 'a t -> 'a t
-end
+module Semigroup = struct
+  module type BASIC = sig
+    type 'a t
+    val append : 'a t -> 'a t -> 'a t
+  end
 
-module type MONOID = sig
-  type 'a t
-  include SEMIGROUP with type 'a t := 'a t
-  val empty : 'a t
+  module type AUGMENTED = sig
+    type 'a t
+    include BASIC with type 'a t := 'a t
+    val sum : 'a t list -> 'a t
+  end
 end
+module type SEMIGROUP = Semigroup.BASIC
+
+module Monoid = struct
+  module type BASIC = sig
+    type 'a t
+    include SEMIGROUP with type 'a t := 'a t
+    val empty : 'a t
+  end
+
+  module type AUGMENTED = sig
+    type 'a t
+    include Semigroup.AUGMENTED with type 'a t := 'a t
+    val empty : 'a t
+  end
+end
+module type MONOID = Monoid.BASIC
 
 module type FOLDABLE = sig
   type 'a t
