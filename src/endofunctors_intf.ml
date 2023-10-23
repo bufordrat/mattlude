@@ -106,9 +106,6 @@ end
 module type MONAD = Monad.AUGMENTED
 
 
-module Option = struct
-
-end
 
 module Result = struct
   module type PRELUDE = sig
