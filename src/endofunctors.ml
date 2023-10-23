@@ -79,28 +79,6 @@ module Monad = struct
 end
 module type MONAD = Monad.BASIC
 
-module Option = struct
-  include Prelude.Option
-  include Stdlib.Option
-
-  let cat_options lst =
-    let rec cat_options' acc = function
-      | [] -> acc
-      | Some x :: xs -> cat_options' (x :: acc) xs
-      | None :: xs -> cat_options' acc xs
-    in
-    List.rev @@ cat_options' [] lst
-
-  module OptionMonad = struct
-    type 'a t = 'a option
-    let pure = some
-    let bind = bind
-  end
-
-  include OptionMonad
-  include Monad.Make (OptionMonad)
-end
-
 module Result = struct
   module type ERROR = sig type t end
 
