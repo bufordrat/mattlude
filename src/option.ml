@@ -12,7 +12,7 @@ let cat_options lst =
   List.rev @@ cat_options' [] lst
 
 module OptionMonad = struct
-  type 'a t = 'a option
+  type 'a t = 'a Stdlib.Option.t
   let pure = some
   let bind = bind
 end
