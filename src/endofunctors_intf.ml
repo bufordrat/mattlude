@@ -105,47 +105,6 @@ module Monad = struct
 end
 module type MONAD = Monad.AUGMENTED
 
-
-
-module Result = struct
-  module type PRELUDE = sig
-
-    (* Prelude values that are polymorphic in the error type are
-       defined in Endofunctors.Result.Make. *)
-
-    type 'a t
-    val ok : 'a -> 'a t
-    val good : 'a t -> bool
-    val bad : 'a t -> bool
-    val get_ok : 'a t -> 'a
-    val default : 'a -> 'a t -> 'a
-    val reduce : 'a t list -> 'a list
-    val always : 'a -> (unit -> 'b) -> 'b
-    val to_bool : 'a t -> bool
-    val to_option : 'a t -> 'a option
-  end
-
-  module type STDLIB = sig
-
-    (* Stdlib values that are polymorphic in the error type are
-       defined in Endofunctors.Result.Make. *)
-
-    type 'a t
-    val value : 'a t -> default:'a -> 'a
-    val to_option : 'a t -> 'a option
-    val to_list : 'a t -> 'a list
-    val to_seq : 'a t -> 'a Seq.t
-  end
-
-  module type AUGMENTED = sig
-    type 'a t
-    include PRELUDE with type 'a t := 'a t
-    include STDLIB with type 'a t := 'a t
-    include Monad.AUGMENTED with type 'a t := 'a t
-  end
-end
-module type RESULT = Result.AUGMENTED
-
 module State = struct
   module type BASIC = sig
     type ('state, 'value) t
