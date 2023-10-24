@@ -1,7 +1,7 @@
 include Prelude.Option
 include Stdlib.Option
 
-module Monad = Endofunctors.Monad 
+open Endofunctors
 
 module OptionMonad = struct
   type 'a t = 'a Stdlib.Option.t
