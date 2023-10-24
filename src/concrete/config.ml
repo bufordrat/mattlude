@@ -25,8 +25,8 @@ module Env = struct
 
   (* let lookup  *)
 
-  module type MONAD = Endofunctors_intf.MONAD
-  module R = Endofunctors_old.Result.Make (String)
+  (* module type MONAD = Endofunctors_intf.MONAD *)
+  (* module R = Endofunctors_old.Result.Make (String) *)
 
 
 (* let getenv = Prelude.Result.trapc
