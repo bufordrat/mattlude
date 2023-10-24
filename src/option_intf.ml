@@ -40,13 +40,17 @@ module type STDLIB = sig
   val fold : none:'a -> some:('b -> 'a) -> 'b t -> 'a
 end
 
-module type AUGMENTED = sig
+module type ETUDE = sig
   open Endofunctors_intf
 
   type 'a t
+  include Monad.AUGMENTED with type 'a t := 'a t
+  val cat_options : 'a t list -> 'a list
+end
+
+module type AUGMENTED = sig
+  type 'a t
   include STDLIB with type 'a t := 'a t
   include PRELUDE with type 'a t := 'a t
-  include Monad.AUGMENTED with type 'a t := 'a t
-
-  val cat_options : 'a t list -> 'a list
+  include ETUDE with type 'a t := 'a t
 end
