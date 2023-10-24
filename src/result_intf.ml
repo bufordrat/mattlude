@@ -71,7 +71,6 @@ module type MAKE =
     val of_bool : ?err:E.t -> E.t -> bool -> (E.t, E.t) result
     val of_option : E.t -> 'b option -> ('b, E.t) result
     val some_error : ('a, E.t) result -> E.t option
-    include AUGMENTED with type 'a t := ('a, E.t) result
 
     (* Stdlib values that are polymorphic in the error type go
        here *)
@@ -95,4 +94,6 @@ module type MAKE =
       ('a, E.t) result ->
       ('a, E.t) result ->
       int
+
+    include ETUDE with type 'a t := ('a, E.t) result
   end
