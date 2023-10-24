@@ -1,20 +1,26 @@
-open Prelude
+module R = Result.Make (String)
 
 module SaferStdLib = struct
-  let slice starting ending =
-    String.(drop starting << take ending)
+
+  let slice starting ending str =
+    let open Prelude.String in
+    take ending str
+    |> drop starting
 
   let string_to_int str =
-    Result.trapc
+    R.trapc
       "tried to convert non-digit characters to int"
       int_of_string
       str
     
-  let assoc_res key alist = match assoc_opt key alist with
+  let assoc_res key alist =
+    let open Prelude.List in
+    match assoc_opt key alist with
     | Some x -> Ok x
     | None -> Error "key error"
 
   let assocs_res key alist =
+    let open Prelude in
     match assocs key alist with
     | [] -> Error "key error"
     | lst -> Ok lst
@@ -25,10 +31,14 @@ module type TABLE = sig
   type field
   type subfield
   type error
-  val lookup : field -> ?subfield:char -> t -> string list option
+  val lookup : field ->
+               ?subfield:char ->
+               t ->
+               string list option
 end
 
 module Table = struct
+
   type t = string
   type field = string
   type subfield = char
@@ -69,16 +79,17 @@ module Table = struct
     let trim = String.trim " \n\t\r\031\030"
 
     let subfields_to_alist str =
-      let trimmed = String.drop 2 str in
-      let lst = String.split ~sep:"\031" trimmed in
-      let mk_pair str = String.(str.[0], drop 1 str) in
+      let open Prelude.String in
+      let trimmed = drop 2 str in
+      let lst = split ~sep:"\031" trimmed in
+      let mk_pair str = (str.[0], drop 1 str) in
       List.map mk_pair lst 
 
     let lookup_res field ?subfield marc =
       let open Endofunctors_old in
       let open List.Traverse.Make (R.ResultMonad) in
       let* bpos = base_pos marc in
-      let body = String.drop bpos marc in
+      let body = Prelude.String.drop bpos marc in
       let* dir = directory marc in
       let* fields = assocs_res field dir in
       let each_field (l_str, pos_str) =
@@ -92,11 +103,11 @@ module Table = struct
         | Some s -> List.map subfields_to_alist lookups
                     |> traverse (assoc_res s)
       in
-      List.map trim output
+      List.map Prelude.String.trim output
 
     let lookup field ?subfield marc =
       lookup_res field ?subfield marc
-      |> Result.to_option
+      |> R.to_option
   end
 
   let lookup = FakeSeek.lookup
@@ -110,4 +121,4 @@ module Table = struct
   end
 end
 
-module _ : TABLE = Table
+(* module _ : TABLE = Table *)

@@ -37,11 +37,6 @@ module Functor = struct
 end
 module type FUNCTOR = Functor.FUNCTOR
 
-module type TRAVERSABLE = sig
-  include FUNCTOR
-  include FOLDABLE with type 'a t := 'a t
-end
-
 module Applicative = struct
   module type APPLICATIVE = sig
     include FUNCTOR

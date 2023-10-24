@@ -1,48 +1,3 @@
-module Semigroup = struct
-  module type BASIC = sig
-    type 'a t
-    val append : 'a t -> 'a t -> 'a t
-  end
-
-  module type AUGMENTED = sig
-    type 'a t
-    include BASIC with type 'a t := 'a t
-    val (<|>) : 'a t -> 'a t -> 'a t
-  end
-end
-module type SEMIGROUP = Semigroup.BASIC
-
-module Monoid = struct
-  module type BASIC = sig
-    type 'a t
-    include Semigroup.BASIC with type 'a t := 'a t
-    val empty : 'a t
-  end
-
-  module type AUGMENTED = sig
-    type 'a t
-    include Semigroup.AUGMENTED with type 'a t := 'a t
-    include BASIC with type 'a t := 'a t
-    val sum : 'a t list -> 'a t
-  end
-end
-module type MONOID = Monoid.BASIC
-
-module Foldable = struct
-  module type BASIC = sig
-    type 'a t
-    include MONOID with type 'a t := 'a t
-    val foldl : ('b -> 'a -> 'b) -> 'b -> 'a t -> 'b
-  end
-
-  module type AUGMENTED = sig
-    type 'a t
-    include BASIC with type 'a t := 'a t
-    val null : 'a t -> bool
-  end
-end
-module type FOLDABLE = Foldable.BASIC
-
 module Functor = struct
   module type BASIC = sig
     type 'a t
@@ -78,12 +33,6 @@ module Applicative = struct
 end
 module type APPLICATIVE = Applicative.AUGMENTED
 
-module type TRAVERSABLE = sig
-  type 'a t
-  include FUNCTOR with type 'a t := 'a t
-  include FOLDABLE with type 'a t := 'a t
-end
-
 module Monad = struct
   module type BASIC = sig
     type 'a t
@@ -104,14 +53,3 @@ module Monad = struct
   end
 end
 module type MONAD = Monad.AUGMENTED
-
-module State = struct
-  module type BASIC = sig
-    type ('state, 'value) t
-    val put : 'state -> ('state, unit) t
-    val get : ('state, 'state) t
-    val eval : ('state, 'value) t -> 'state -> 'value
-    val exec : ('state, 'value) t -> 'state -> 'state
-    val run : ('state, 'value) t -> 'state -> 'value * 'state
-  end
-end
