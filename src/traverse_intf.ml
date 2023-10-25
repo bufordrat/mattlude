@@ -44,15 +44,17 @@ end
 module type FOLDABLE = Foldable.BASIC
 
 module Traversable = struct
-  module type BASIC = sig
-    open Endofunctors_intf
+  open Endofunctors_intf
 
-    type 'a stream
-    include Functor.BASIC with type 'a t := 'a stream
-    include Foldable.BASIC with type 'a t := 'a stream
-
-    type 'a idiom
-    include Applicative.BASIC with type 'a t := 'a idiom
+  module type STREAM = sig
+    type 'a t
+    include Functor.BASIC with type 'a t := 'a t
+    include Foldable.BASIC with type 'a t := 'a t
+  end
+  
+  module type IDIOM = sig
+    type 'a t
+    include Applicative.BASIC with type 'a t := 'a t
   end
 end
-module type TRAVERSABLE = Traversable.BASIC
+
