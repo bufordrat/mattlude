@@ -20,11 +20,13 @@ module Applicative = struct
   module type BASIC = sig
     type 'a t
     include Functor.BASIC with type 'a t := 'a t
+    val pure : 'a -> 'a t
     val product : 'a t -> 'b t -> ('a * 'b) t
   end
 
   module type AUGMENTED = sig
     type 'a t
+    include BASIC with type 'a t := 'a t
     include Functor.AUGMENTED with type 'a t := 'a t
     val ( and+ ) : 'a t -> 'b t -> ('a * 'b) t
     val apply : ('a -> 'b) t -> 'a t -> 'b t

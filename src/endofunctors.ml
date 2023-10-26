@@ -37,6 +37,8 @@ module Applicative = struct
     include Functor.Make (A)
     type 'a t = 'a A.t
     let ( and+ ) = A.product
+    let pure = A.pure
+    let product = A.product
     let apply af ax = A.map
                         (fun (f, x) -> f x)
                         (A.product af ax)
@@ -67,6 +69,7 @@ module Monad = struct
 
     module I = struct
       type 'a t = 'a M.t
+      let pure = M.pure
       let map f mx = let* x = mx in
                      pure (f x)
       let product ax ay = let* x = ax in

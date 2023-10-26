@@ -40,6 +40,7 @@ end = struct
   let ( >|= ) = S.( >|= )
   let ( <$> ) = S.( <$> )
   let ( and+ ) = S.( and+ )
+  let product = S.product
   let ( <*> ) = S.( <*> )
   let apply = S.apply
   let ( >>= ) = S.( >>= )
