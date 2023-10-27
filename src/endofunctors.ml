@@ -58,7 +58,6 @@ module Monad = struct
   module Make (M : BASIC)
          : AUGMENTED with type 'a t = 'a M.t
     = struct
-    let pure = M.pure
     let bind = M.bind
     let ( >>= ) = bind
     let ( let* ) = bind

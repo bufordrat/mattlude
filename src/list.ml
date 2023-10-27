@@ -1,4 +1,7 @@
+include Prelude.List
 include Stdlib.List
+
+module Assoc = Prelude.Assoc
 
 open Endofunctors
 
@@ -11,5 +14,10 @@ end
 module M = Monad.Make (ListMonad)
 include M
 
-module T = Traverse.List.Make (M)
-let sequence = T.sequence
+module Traverse = struct
+  module T = Traverse.List.Make (M)
+  let sequence = T.sequence
+  let forM = T.forM
+  let traverse = T.traverse
+end
+include Traverse

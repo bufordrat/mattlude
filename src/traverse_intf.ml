@@ -56,5 +56,21 @@ module Traversable = struct
     type 'a t
     include Applicative.BASIC with type 'a t := 'a t
   end
-end
 
+  (* TODO: abstract over container datatypes other than lists; Haskell
+     handwaves this a bit *)
+
+  module List = struct
+    module type BASIC = sig
+      type 'a t 
+      val sequence : 'a t list -> 'a list t
+    end
+
+    module type AUGMENTED = sig
+      type 'a t
+      include BASIC with type 'a t := 'a t
+      val traverse : ('a -> 'b t) -> 'a list -> 'b list t
+      val forM : 'a list -> ('a -> 'b t) -> 'b list t
+    end
+  end
+end

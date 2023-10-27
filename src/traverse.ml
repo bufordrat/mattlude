@@ -15,7 +15,13 @@ end
    handwaves this a bit *)
 
 module List = struct
-  module Make (I : IDIOM) = struct
+  type 'a t = 'a list
+
+  module type TRAVERSABLE =
+    Traverse_intf.Traversable.List.AUGMENTED
+
+  module Make (I : IDIOM)
+         : TRAVERSABLE with type 'a t := 'a I.t = struct
     open Endofunctors
     include Applicative.Make (I)
     let sequence lst =
@@ -24,7 +30,11 @@ module List = struct
         and+ xs = acc
         in x :: xs
       in
-      let open Prelude in
+      let open Prelude.List in
       foldl reducer (I.pure []) (rev lst)
+    let traverse f lst =
+      let open Stdlib.List in
+      sequence (map f lst)
+    let forM lst f = traverse f lst
   end
 end

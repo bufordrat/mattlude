@@ -10,6 +10,7 @@ module OptionMonad = struct
 end
 
 include Monad.Make (OptionMonad)
+include OptionMonad
 
 let cat_options lst =
   let rec cat_options' acc = function
