@@ -17,4 +17,4 @@ let cat_options lst =
     | Some x :: xs -> cat_options' (x :: acc) xs
     | None :: xs -> cat_options' acc xs
   in
-  List.rev @@ cat_options' [] lst
+  Stdlib.List.rev @@ cat_options' [] lst

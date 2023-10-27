@@ -10,7 +10,8 @@ module Env = struct
           : type a. (string, a) opt_or_def -> string -> a =
     fun what_to_do str ->
     let open Prelude.Unix.Env in
-    let value = env () |> List.assoc_opt str in
+    let open Stdlib.List in
+    let value = env () |> assoc_opt str in
     match value with
     | Some v -> begin
         match what_to_do with

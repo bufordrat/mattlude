@@ -11,6 +11,9 @@ module Make (S : STREAM) (I : IDIOM) = struct
   module Stream = Functor.Make (S)
 end
 
+(* TODO: abstract over container datatypes other than lists; Haskell
+   handwaves this a bit *)
+
 module List = struct
   module Make (I : IDIOM) = struct
     open Endofunctors
@@ -22,6 +25,6 @@ module List = struct
         in x :: xs
       in
       let open Prelude in
-      foldl reducer (I.pure []) lst >>| rev
+      foldl reducer (I.pure []) (rev lst)
   end
 end
