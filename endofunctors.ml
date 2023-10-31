@@ -1,11 +1,10 @@
 open Prelude
 
-
 module type SEMIGROUP = sig
   type 'a t
   val append : 'a t -> 'a t -> 'a t
 end
-
+   
 module type MONOID = sig
   include SEMIGROUP
   val empty : 'a t
@@ -24,10 +23,10 @@ module Functor = struct
   end
   
   module Goodies (F : FUNCTOR) = struct
-    let ( let+ ) x f = F.map f x
-    let (>>|) = ( let+ )
-    let (<&>) = ( let+ )
-    let (>|=) = ( let+ )
+    let (let+) x f = F.map f x
+    let (>>|) = (let+)
+    let (<&>) = (let+)
+    let (>|=) = (let+)
     let (<$>) = F.map
   end
 
@@ -37,11 +36,6 @@ module Functor = struct
   end
 end
 module type FUNCTOR = Functor.FUNCTOR
-
-module type TRAVERSABLE = sig
-  include FUNCTOR
-  include FOLDABLE with type 'a t := 'a t
-end
 
 module Applicative = struct
   module type APPLICATIVE = sig
@@ -101,41 +95,11 @@ module Monad = struct
     end
 end
 module type MONAD = Monad.MONAD
-
-module List = struct
-  include Prelude.List
-  include Stdlib.List
-
-  module ListMonad = struct
-    type 'a t = 'a list
-    let pure x = x :: []
-    let bind mx k = flatten (map k mx)
-  end
-
-  module Traverse = struct
-    module Make (M : MONAD) = struct
-      open Monad.ToApplicative (M)
-      let sequence lst =
-        let reducer acc mx =
-          let+ x = mx
-          and+ xs = acc
-          in x :: xs
-        in
-        foldl reducer (M.pure []) lst >>| rev
-      let traverse f xs = sequence (List.map f xs)
-    end
-  end
-                  
-  include ListMonad
-  include Monad.ToApplicative (ListMonad)
-  include Traverse.Make (ListMonad)
-end
-module _ : MONAD = List
          
 (* helper functions for optional values *)
 module Option = struct
-  include Prelude.Option
   include Stdlib.Option
+  include Prelude.Option
 
   (* unwraps the Somes; throws the None-s out *)
   let cat_options lst =
@@ -153,11 +117,8 @@ module Option = struct
     let bind = bind
   end
 
-  include OptionMonad
   include Monad.ToApplicative (OptionMonad)
-  include List.Traverse.Make (OptionMonad)
 end
-module _ : MONAD = Option
 
 module Result = struct
   (* module functor for building a Result module with cool extra stuff
@@ -176,12 +137,8 @@ module Result = struct
       let pure = Result.ok
       let bind = Result.bind
     end
-
-    (* TODO: figure out why including ResultMonad here breaks my broken parser *)
+    
     include Monad.ToApplicative (ResultMonad)
-    include List.Traverse.Make (ResultMonad)
-
-    module _ : MONAD = ResultMonad
   end
 end
 
@@ -199,16 +156,37 @@ module State = struct
         k result1 @@ state2
     end
 
-    include StateMonad
-    include Monad.ToApplicative (StateMonad)
-    include List.Traverse.Make (StateMonad)
-
     let put value _ = ((), value)
     let get state = (state, state)
 
     let eval mx state = mx state |> fst
     let exec mx state = mx state |> snd
 
-    module _ : MONAD = StateMonad
+    include Monad.ToApplicative (StateMonad)
+  end
+end
+
+module List = struct
+  include Prelude.List
+  include Stdlib.List
+
+  module ListMonad = struct
+    type 'a t = 'a list
+    let pure x = x :: []
+    let bind mx k = flatten (map k mx)
+  end
+  include Monad.ToApplicative (ListMonad)
+
+  module Traverse = struct
+    module Make (M : MONAD) = struct
+      include Monad.ToApplicative (M)
+      let rec sequence = function
+        | [] -> M.pure []
+        | mx :: mxs ->
+           let+ x = mx 
+           and+ xs = sequence mxs in
+           x :: xs
+      let traverse f xs = sequence (List.map f xs)
+    end
   end
 end

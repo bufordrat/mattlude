@@ -23,7 +23,7 @@ module Free = struct
         | Pure x -> k x
         | Join rest -> Join (F.map (flip bind @@ k) rest)
       
-      let lift cmd = Join (F.map pure cmd)
+      let lift cmd = Join (F.map pure cmd)          
     end
     include FreeMonad
     include Monad.ToApplicative (FreeMonad)
