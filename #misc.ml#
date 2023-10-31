@@ -6,7 +6,7 @@
  *)
 
 
-open Prelude
+nopen Prelude
 open Endofunctors
 
 
